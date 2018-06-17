@@ -37,6 +37,7 @@ static spi_device_handle_t spi;
 static spi_device_handle_t touch_spi;
 static TaskHandle_t xTaskToNotify = NULL;
 bool waitForTransactions = false;
+bool isBackLightIntialized = false;
 
 #define LINE_COUNT (5)
 uint16_t* line[2];
@@ -348,6 +349,8 @@ static void backlight_init()
     // duty range is 0 ~ ((2**bit_num)-1)
     ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, (LCD_BACKLIGHT_ON_VALUE) ? DUTY_MAX : 0, 500);
     ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_NO_WAIT);
+
+    isBackLightIntialized = true;
 }
 
 #if 1
@@ -1172,4 +1175,9 @@ void ili9341_write_frame_rectangleLE(short left, short top, short width, short h
 void display_tasktonotify_set(int value)
 {
     xTaskToNotify = value;
+}
+
+int is_backlight_initialized()
+{
+    return isBackLightIntialized;
 }

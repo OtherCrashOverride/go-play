@@ -31,6 +31,7 @@ static bool battery_monitor_enabled = true;
 static int BacklightLevels[BACKLIGHT_LEVEL_COUNT] = {10, 33, 66, 100};
 static int BacklightLevel = BACKLIGHT_LEVEL_COUNT - 1;
 
+int is_backlight_initialized();
 
 odroid_gamepad_state odroid_input_read_raw()
 {
@@ -206,27 +207,29 @@ static void odroid_input_task(void *arg)
 
         }
 
-
-        const int DUTY_MAX = 0x1fff;
-        int duty = DUTY_MAX * (BacklightLevels[BacklightLevel] * 0.01f);
-
-        uint32_t currentDuty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-        if (currentDuty != duty)
+        if (is_backlight_initialized())
         {
-            changed = true;
-        }
+            const int DUTY_MAX = 0x1fff;
+            int duty = DUTY_MAX * (BacklightLevels[BacklightLevel] * 0.01f);
 
-        if (changed)
-        {
-            //backlight_percentage_set(BacklightLevels[BacklightLevel]);
+            uint32_t currentDuty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            if (currentDuty != duty)
+            {
+                changed = true;
+            }
+
+            if (changed)
+            {
+                //backlight_percentage_set(BacklightLevels[BacklightLevel]);
 
 
-            ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty, 1);
-            ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_WAIT_DONE /*LEDC_FADE_NO_WAIT*/);
+                ledc_set_fade_with_time(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty, 1);
+                ledc_fade_start(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, LEDC_FADE_WAIT_DONE /*LEDC_FADE_NO_WAIT*/);
 
-            //ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
+                //ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, duty);
 
-            changed = false;
+                changed = false;
+            }
         }
 
         previous_gamepad_state = gamepad_state;
