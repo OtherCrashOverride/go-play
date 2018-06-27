@@ -709,7 +709,7 @@ void ili9341_prepare()
 }
 
 //
-void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGameGear)
+void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGameGear, uint8_t scale)
 {
     short x, y;
 
@@ -738,219 +738,262 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
     {
         uint8_t* framePtr = buffer;
 
-#if 1
 
-if (!isGameGear)
-{
-        const short xOffset = 4;
-        const uint16_t displayWidth = 320 - (xOffset / 4 * 5);
-        const short centerX = (320 - displayWidth) >> 1;
-
-        send_reset_drawing(centerX, 0, displayWidth, 240);
-
-        uint8_t alt = 0;
-
-        for (y = 0; y < GAME_HEIGHT; y += 4)
+        if (!isGameGear)
         {
-          int linesWritten = 0;
-
-          for (short i = 0; i < 4; ++i)
-          {
-              if((y + i) >= GAME_HEIGHT)
-                break;
-
-              int index = (i) * displayWidth;
-              if (i > 1) index += displayWidth; // skip a line for blending
-
-              int bufferIndex = ((y + i) * GAME_WIDTH) + xOffset;
-
-              uint16_t samples[4];
-
-              for (x = 0; x < GAME_WIDTH - (xOffset * 2); x += 4)
-              {
-                for (short j = 0; j < 4; ++j)
-                {
-                    uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
-
-                    uint8_t r = color[val][0];
-                    uint8_t g = color[val][1];
-                    uint8_t b = color[val][2];
-
-                    samples[j] = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
-                }
-
-                uint16_t mid1 = Blend(samples[1], samples[2]);
-
-                line[alt][index++] = ((samples[0] >> 8) | (samples[0] << 8));
-                line[alt][index++] = ((samples[1] >> 8) | (samples[1] << 8));
-                line[alt][index++] = ((mid1 >> 8) | (mid1 << 8));
-                line[alt][index++] = ((samples[2] >> 8) | (samples[2] << 8));
-                line[alt][index++] = ((samples[3] >> 8) | (samples[3] << 8));
-              }
-
-              ++linesWritten;
-          }
-
-          // blend horizontal
-          short srcIndex1 = displayWidth * 1;
-          short srcIndex2 = displayWidth * 3;
-          short dstIndex = displayWidth * 2;
-
-          for (short i = 0; i < displayWidth; ++i)
-          {
-              uint16_t sample1 = line[alt][srcIndex1++];
-              sample1 = ((sample1 >> 8) | (sample1 << 8));
-
-              uint16_t sample2 = line[alt][srcIndex2++];
-              sample2 = ((sample2 >> 8) | (sample2 << 8));
-
-              uint16_t mid1 = Blend(sample1, sample2);
-
-              line[alt][dstIndex++] = ((mid1 >> 8) | (mid1 << 8));
-          }
-
-          ++linesWritten;
-
-          // display
-          send_continue_line(line[alt], displayWidth, linesWritten);
-
-          // swap buffers
-          if (alt)
-            alt = 0;
-          else
-            alt = 1;
-        }
-}
-else
-{
-    // game Gear
-    const short outputWidth = 318;
-    const short outputHeight = 240;
-    const short centerX = (320 - outputWidth) >> 1;
-
-    //uint16_t samples[3];
-    framePtr += (24 * 256);
-
-
-    //send_reset_drawing(26, 0, outputWidth, outputHeight);
-    send_reset_drawing(centerX, 0, outputWidth, outputHeight);
-
-    uint8_t alt = 0;
-    for (y = 0; y < 144; y += 3)
-    {
-        for (short i = 0; i < 3; ++i)
-        {
-            // skip middle vertical line
-            int index = i * outputWidth * 2;
-            int bufferIndex = ((y + i) * 256) + 48 + 1;
-
-            for (x = 1; x < GAMEGEAR_WIDTH - (1 * 2); ++x)
+            if (scale)
             {
-                uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+                const short xOffset = 4;
+                const uint16_t displayWidth = 320 - (xOffset / 4 * 5);
+                const short centerX = (320 - displayWidth) >> 1;
 
-                uint8_t r = color[val][0];
-                uint8_t g = color[val][1];
-                uint8_t b = color[val][2];
+                send_reset_drawing(centerX, 0, displayWidth, 240);
 
-                uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
-                sample = (sample >> 8) | (sample << 8);
+                uint8_t alt = 0;
 
-                line[alt][index++] = sample;
-                line[alt][index++] = sample;
+                for (y = 0; y < GAME_HEIGHT; y += 4)
+                {
+                  int linesWritten = 0;
+
+                  for (short i = 0; i < 4; ++i)
+                  {
+                      if((y + i) >= GAME_HEIGHT)
+                        break;
+
+                      int index = (i) * displayWidth;
+                      if (i > 1) index += displayWidth; // skip a line for blending
+
+                      int bufferIndex = ((y + i) * GAME_WIDTH) + xOffset;
+
+                      uint16_t samples[4];
+
+                      for (x = 0; x < GAME_WIDTH - (xOffset * 2); x += 4)
+                      {
+                        for (short j = 0; j < 4; ++j)
+                        {
+                            uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+
+                            uint8_t r = color[val][0];
+                            uint8_t g = color[val][1];
+                            uint8_t b = color[val][2];
+
+                            samples[j] = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                        }
+
+                        uint16_t mid1 = Blend(samples[1], samples[2]);
+
+                        line[alt][index++] = ((samples[0] >> 8) | (samples[0] << 8));
+                        line[alt][index++] = ((samples[1] >> 8) | (samples[1] << 8));
+                        line[alt][index++] = ((mid1 >> 8) | (mid1 << 8));
+                        line[alt][index++] = ((samples[2] >> 8) | (samples[2] << 8));
+                        line[alt][index++] = ((samples[3] >> 8) | (samples[3] << 8));
+                      }
+
+                      ++linesWritten;
+                  }
+
+                  // blend horizontal
+                  short srcIndex1 = displayWidth * 1;
+                  short srcIndex2 = displayWidth * 3;
+                  short dstIndex = displayWidth * 2;
+
+                  for (short i = 0; i < displayWidth; ++i)
+                  {
+                      uint16_t sample1 = line[alt][srcIndex1++];
+                      sample1 = ((sample1 >> 8) | (sample1 << 8));
+
+                      uint16_t sample2 = line[alt][srcIndex2++];
+                      sample2 = ((sample2 >> 8) | (sample2 << 8));
+
+                      uint16_t mid1 = Blend(sample1, sample2);
+
+                      line[alt][dstIndex++] = ((mid1 >> 8) | (mid1 << 8));
+                  }
+
+                  ++linesWritten;
+
+                  // display
+                  send_continue_line(line[alt], displayWidth, linesWritten);
+
+                  // swap buffers
+                  if (alt)
+                    alt = 0;
+                  else
+                    alt = 1;
+                }
+            }
+            else
+            {
+                send_reset_drawing((320 / 2) - (GAME_WIDTH / 2),
+                    (240 / 2) - (GAME_HEIGHT / 2),
+                    GAME_WIDTH,
+                    GAME_HEIGHT);
+
+                uint8_t alt = 0;
+
+                for (y = 0; y < GAME_HEIGHT; y += 4)
+                {
+                  int linesWritten = 0;
+
+                  for (short i = 0; i < 4; ++i)
+                  {
+                      if((y + i) >= GAME_HEIGHT)
+                        break;
+
+                      int index = (i) * GAME_WIDTH;
+                      int bufferIndex = ((y + i) * GAME_WIDTH);
+
+                      for (x = 0; x < GAME_WIDTH; ++x)
+                      {
+                        uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+
+                        uint8_t r = color[val][0];
+                        uint8_t g = color[val][1];
+                        uint8_t b = color[val][2];
+
+                        uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                        line[alt][index++] = ((sample >> 8) | (sample << 8));
+                      }
+
+                      ++linesWritten;
+                  }
+
+                  // display
+                  send_continue_line(line[alt], GAME_WIDTH, linesWritten);
+
+                  // swap buffers
+                  if (alt)
+                    alt = 0;
+                  else
+                    alt = 1;
+                }
+            }
+        }
+        else
+        {
+            // game Gear
+            framePtr += (24 * 256);
+
+            if (scale)
+            {
+                const short outputWidth = 318;
+                const short outputHeight = 240;
+                const short centerX = (320 - outputWidth) >> 1;
+
+                send_reset_drawing(centerX, 0, outputWidth, outputHeight);
+
+                uint8_t alt = 0;
+                for (y = 0; y < 144; y += 3)
+                {
+                    for (short i = 0; i < 3; ++i)
+                    {
+                        // skip middle vertical line
+                        int index = i * outputWidth * 2;
+                        int bufferIndex = ((y + i) * 256) + 48 + 1;
+
+                        for (x = 1; x < GAMEGEAR_WIDTH - (1 * 2); ++x)
+                        {
+                            uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+
+                            uint8_t r = color[val][0];
+                            uint8_t g = color[val][1];
+                            uint8_t b = color[val][2];
+
+                            uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                            sample = (sample >> 8) | (sample << 8);
+
+                            line[alt][index++] = sample;
+                            line[alt][index++] = sample;
+                        }
+                    }
+
+                    // Blend top and bottom lines into middle
+                    short sourceA = 0;
+                    short sourceB = outputWidth * 2;
+                    short sourceC = sourceB + (outputWidth * 2);
+
+                    short output1 = outputWidth;
+                    short output2 = output1 + (outputWidth * 2);
+
+                    for (short j = 0; j < outputWidth; ++j)
+                    {
+                      uint16_t a = line[alt][sourceA++];
+                      a = ((a >> 8) | ((a) << 8));
+
+                      uint16_t b = line[alt][sourceB++];
+                      b = ((b >> 8) | ((b) << 8));
+
+                      uint16_t c = line[alt][sourceC++];
+                      c = ((c >> 8) | ((c) << 8));
+
+                      uint16_t mid = Blend(a, b);
+                      mid = ((mid >> 8) | ((mid) << 8));
+
+                      line[alt][output1++] = mid;
+
+                      uint16_t mid2 = Blend(b, c);
+                      mid2 = ((mid2 >> 8) | ((mid2) << 8));
+
+                      line[alt][output2++] = mid2;
+                    }
+
+                    // send the data
+                    send_continue_line(line[alt], outputWidth, 5);
+
+                    // swap buffers
+                    alt = alt ? 0 : 1;
+                }
+            }
+            else
+            {
+                send_reset_drawing((320 / 2) - (GAMEGEAR_WIDTH / 2),
+                    (240 / 2) - (GAMEGEAR_HEIGHT / 2),
+                    GAMEGEAR_WIDTH,
+                    GAMEGEAR_HEIGHT);
+
+                uint8_t alt = 0;
+
+                for (y = 0; y < GAMEGEAR_HEIGHT; y += LINE_COUNT)
+                {
+                  int linesWritten = 0;
+
+                  for (short i = 0; i < LINE_COUNT; ++i)
+                  {
+                      if((y + i) >= GAMEGEAR_HEIGHT)
+                        break;
+
+                      int index = (i) * GAMEGEAR_WIDTH;
+                      int bufferIndex = ((y + i) * 256) + 48;
+
+                      for (x = 0; x < GAMEGEAR_WIDTH; ++x)
+                      {
+                        uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+
+                        uint8_t r = color[val][0];
+                        uint8_t g = color[val][1];
+                        uint8_t b = color[val][2];
+
+                        uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                        line[alt][index++] = ((sample >> 8) | (sample << 8));
+                      }
+
+                      ++linesWritten;
+                  }
+
+                  // display
+                  send_continue_line(line[alt], GAMEGEAR_WIDTH, linesWritten);
+
+                  // swap buffers
+                  if (alt)
+                    alt = 0;
+                  else
+                    alt = 1;
+                }
             }
         }
 
-        // Blend top and bottom lines into middle
-        short sourceA = 0;
-        short sourceB = outputWidth * 2;
-        short sourceC = sourceB + (outputWidth * 2);
-
-        short output1 = outputWidth;
-        short output2 = output1 + (outputWidth * 2);
-
-        for (short j = 0; j < outputWidth; ++j)
-        {
-          uint16_t a = line[alt][sourceA++];
-          a = ((a >> 8) | ((a) << 8));
-
-          uint16_t b = line[alt][sourceB++];
-          b = ((b >> 8) | ((b) << 8));
-
-          uint16_t c = line[alt][sourceC++];
-          c = ((c >> 8) | ((c) << 8));
-
-          uint16_t mid = Blend(a, b);
-          mid = ((mid >> 8) | ((mid) << 8));
-
-          line[alt][output1++] = mid; //((mid >> 8) | ((mid & 0xff) << 8));
-
-          uint16_t mid2 = Blend(b, c);
-          mid2 = ((mid2 >> 8) | ((mid2) << 8));
-
-          line[alt][output2++] = mid2;
-        }
-
-        // send the data
-        //send_continue_wait();
-        send_continue_line(line[alt], outputWidth, 5);
-        //send_continue_wait();
-
-        // swap buffers
-        alt = alt ? 0 : 1;
-    }
-
-}
-
         send_continue_wait();
-#else
-        send_reset_drawing(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-
-        uint8_t alt = 0;
-
-        for (y = 0; y < GAME_HEIGHT; y += LINE_COUNT)
-        {
-          int linesWritten = 0;
-
-          for (int i = 0; i < LINE_COUNT; ++i)
-          {
-              if((y + i) >= GAME_HEIGHT)
-                break;
-
-              int index = (i) * GAME_WIDTH;
-              int bufferIndex = ((y + i) * GAME_WIDTH);
-
-              for (x = 0; x < GAME_WIDTH; ++x)
-              {
-                //uint16_t sample = framePtr[bufferIndex++];
-                uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
-
-                uint8_t r = bitmap.pal.color[val][0];
-                uint8_t g = bitmap.pal.color[val][1];
-                uint8_t b = bitmap.pal.color[val][2];
-
-                uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
-
-                line[alt][index++] = ((sample >> 8) | ((sample & 0xff) << 8));
-              }
-
-              ++linesWritten;
-          }
-
-          send_continue_line(line[alt], GAME_WIDTH, linesWritten);
-
-          // swap buffers
-          if (alt)
-            alt = 0;
-          else
-            alt = 1;
-        }
-
-        send_continue_wait();
-#endif
-
     }
-
 }
 
 //

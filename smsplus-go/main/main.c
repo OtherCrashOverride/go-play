@@ -39,6 +39,9 @@ TaskHandle_t videoTaskHandle;
 odroid_volume_level Volume;
 odroid_battery_state battery;
 
+bool scaling_enabled = true;
+bool previous_scaling_enabled = true;
+
 volatile bool videoTaskIsRunning = false;
 void videoTask(void *arg)
 {
@@ -53,7 +56,13 @@ void videoTask(void *arg)
         if (param == 1)
             break;
 
-        ili9341_write_frame_sms(param, bitmap.pal.color, cart.type != TYPE_SMS);
+        if (previous_scaling_enabled != scaling_enabled)
+        {
+            ili9341_write_frame_sms(NULL, NULL, cart.type != TYPE_SMS, false);
+            previous_scaling_enabled = scaling_enabled;
+        }
+
+        ili9341_write_frame_sms(param, bitmap.pal.color, cart.type != TYPE_SMS, scaling_enabled);
 
         odroid_input_battery_level_read(&battery);
 
@@ -405,7 +414,7 @@ void app_main(void)
 
 
     ili9341_init();
-    ili9341_write_frame_sms(NULL, NULL, false);
+    ili9341_write_frame_sms(NULL, NULL, false, false);
 
     odroid_audio_init(AUDIO_SAMPLE_RATE);
 
@@ -544,19 +553,12 @@ void app_main(void)
         if (powerFrameCount > 60 * 2)
         {
             // Turn Blue LED on. Power state change turns it off
-            //gpio_set_level(GPIO_NUM_2, 1);
             odroid_system_led_set(1);
-
             PowerDown();
-
-            //gpio_set_level(GPIO_NUM_2, 0);
         }
 
         if (previousState.values[ODROID_INPUT_VOLUME] && !joystick.values[ODROID_INPUT_VOLUME])
         {
-            // Volume += 0.25f;
-            // if (Volume > 1.0f) Volume = 0.0f;
-
             odroid_audio_volume_change();
             printf("main: Volume=%d\n", odroid_audio_volume_get());
         }
@@ -564,6 +566,13 @@ void app_main(void)
         if (!ignoreMenuButton && previousState.values[ODROID_INPUT_MENU] && !joystick.values[ODROID_INPUT_MENU])
         {
             DoHome();
+        }
+
+
+        // Scaling
+        if (joystick.values[ODROID_INPUT_START] && !previousState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
+        {
+            scaling_enabled = !scaling_enabled;
         }
 
 
