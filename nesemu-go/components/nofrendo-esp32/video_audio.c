@@ -60,6 +60,8 @@
 
 odroid_volume_level Volume;
 odroid_battery_state battery;
+int scaling_enabled = 1;
+int previous_scaling_enabled = 1;
 
 //Seemingly, this will be called only once. Should call func with a freq of frequency,
 int osd_installtimer(int frequency, void *func, int funcsize, void *counter, int countersize)
@@ -260,7 +262,14 @@ static void videoTask(void *arg) {
 
         if (bmp == 1) break;
 
-        ili9341_write_frame_nes(bmp, myPalette);
+        if (previous_scaling_enabled != scaling_enabled)
+        {
+            // Clear display
+            ili9341_write_frame_nes(NULL, NULL, true);
+            previous_scaling_enabled = scaling_enabled;
+        }
+
+        ili9341_write_frame_nes(bmp, myPalette, scaling_enabled);
 
         odroid_input_battery_level_read(&battery);
 
@@ -456,6 +465,14 @@ static int ConvertJoystickInput()
         esp_restart();
     }
 
+
+    // Scaling
+    if (state.values[ODROID_INPUT_START] && !previousJoystickState.values[ODROID_INPUT_RIGHT] && state.values[ODROID_INPUT_RIGHT])
+    {
+        scaling_enabled = !scaling_enabled;
+    }
+
+
     previousJoystickState = state;
 
 	return result;
@@ -596,7 +613,7 @@ int osd_init()
 
 
 	ili9341_init();
-	ili9341_write_frame_nes(NULL, NULL);
+	ili9341_write_frame_nes(NULL, NULL, true);
 
 
 	vidQueue=xQueueCreate(1, sizeof(bitmap_t *));

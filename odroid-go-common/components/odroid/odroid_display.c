@@ -952,7 +952,7 @@ else
 
 //
 
-void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette)
+void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale)
 {
     short x, y;
 
@@ -975,52 +975,88 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette)
     {
         uint8_t* framePtr = buffer;
 
-        const uint16_t displayWidth = 320 - 10;
-        const uint16_t top = (240 - NES_GAME_HEIGHT) / 2;
-
-        send_reset_drawing(0, top, displayWidth, NES_GAME_HEIGHT);
-
-        uint8_t alt = 0;
-
-        for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
+        if (scale)
         {
-          int linesWritten = 0;
+            const uint16_t displayWidth = 320 - 10;
+            const uint16_t top = (240 - NES_GAME_HEIGHT) / 2;
 
-          for (short i = 0; i < LINE_COUNT; ++i)
-          {
-              if((y + i) >= NES_GAME_HEIGHT)
-                break;
+            send_reset_drawing(0, top, displayWidth, NES_GAME_HEIGHT);
 
-              int index = (i) * displayWidth;
+            uint8_t alt = 0;
 
-              int bufferIndex = ((y + i) * NES_GAME_WIDTH) + 4;
+            for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
+            {
+              int linesWritten = 0;
 
-              uint16_t samples[4];
-              for (x = 4; x < NES_GAME_WIDTH - 4; x += 4)
+              for (short i = 0; i < LINE_COUNT; ++i)
               {
-                for (short j = 0; j < 4; ++j)
-                {
-                    uint8_t val = framePtr[bufferIndex++];
-                    samples[j] = myPalette[val];
-                }
+                  if((y + i) >= NES_GAME_HEIGHT)
+                    break;
 
-                uint16_t mid = Blend(samples[1], samples[2]);
+                  int index = (i) * displayWidth;
 
-                line[alt][index++] = samples[0];
-                line[alt][index++] = samples[1];
-                line[alt][index++] = mid;
-                line[alt][index++] = samples[2];
-                line[alt][index++] = samples[3];
+                  int bufferIndex = ((y + i) * NES_GAME_WIDTH) + 4;
+
+                  uint16_t samples[4];
+                  for (x = 4; x < NES_GAME_WIDTH - 4; x += 4)
+                  {
+                    for (short j = 0; j < 4; ++j)
+                    {
+                        uint8_t val = framePtr[bufferIndex++];
+                        samples[j] = myPalette[val];
+                    }
+
+                    uint16_t mid = Blend(samples[1], samples[2]);
+
+                    line[alt][index++] = samples[0];
+                    line[alt][index++] = samples[1];
+                    line[alt][index++] = mid;
+                    line[alt][index++] = samples[2];
+                    line[alt][index++] = samples[3];
+                  }
+
+                  ++linesWritten;
               }
 
-              ++linesWritten;
-          }
+              // display
+              send_continue_line(line[alt], displayWidth, linesWritten);
 
-          // display
-          send_continue_line(line[alt], displayWidth, linesWritten);
+              // swap buffers
+              alt = alt ? 0 : 1;
+            }
+        }
+        else
+        {
+            send_reset_drawing((320 / 2) - (NES_GAME_WIDTH / 2), (240 / 2) - (NES_GAME_HEIGHT / 2), NES_GAME_WIDTH, NES_GAME_HEIGHT);
 
-          // swap buffers
-          alt = alt ? 0 : 1;
+            uint8_t alt = 0;
+
+            for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
+            {
+              int linesWritten = 0;
+
+              for (short i = 0; i < LINE_COUNT; ++i)
+              {
+                  if((y + i) >= NES_GAME_HEIGHT)
+                    break;
+
+                  int index = (i) * NES_GAME_WIDTH;
+                  int bufferIndex = ((y + i) * NES_GAME_WIDTH);
+
+                  for (x = 0; x < NES_GAME_WIDTH; ++x)
+                  {
+                    line[alt][index++] = myPalette[framePtr[bufferIndex++]];
+                  }
+
+                  ++linesWritten;
+              }
+
+              // display
+              send_continue_line(line[alt], NES_GAME_WIDTH, linesWritten);
+
+              // swap buffers
+              alt = alt ? 0 : 1;
+            }
         }
     }
 

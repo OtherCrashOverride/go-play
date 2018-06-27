@@ -11,7 +11,7 @@ void send_continue_wait();
 void send_continue_line(uint16_t *line, int width, int lineCount);
 
 void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGameGear);
-void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette);
+void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale);
 
 void backlight_percentage_set(int value);
 void ili9341_write_frame(uint16_t* buffer);
