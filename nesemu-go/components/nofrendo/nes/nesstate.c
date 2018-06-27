@@ -444,6 +444,7 @@ _error:
 }
 
 
+extern bool forceConsoleReset;
 
 static int state_load(char* fn)
 {
@@ -462,12 +463,13 @@ static int state_load(char* fn)
 
    printf("state_load: fn='%s'\n", fn);
 
-   /* open our file for writing */
+   /* open our file for reading */
    status = SNSS_OpenFile(&snssFile, fn, SNSS_OPEN_READ);
    if (SNSS_OK != status)
    {
        printf("state_load: file '%s' could not be opened.\n", fn);
-      return 0; //goto _error;
+       forceConsoleReset = true;
+       return 0; //goto _error;
   }
 
 
