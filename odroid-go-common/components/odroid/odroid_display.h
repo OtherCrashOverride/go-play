@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-void ili9341_write_frame_gb(uint16_t* buffer);
+void ili9341_write_frame_gb(uint16_t* buffer, int scale);
 void ili9341_init();
 void ili9341_poweroff();
 void ili9341_prepare();

@@ -404,7 +404,7 @@ static uint16_t Blend(uint16_t a, uint16_t b)
   return (rv << 11) | (gv << 5) | (bv);
 }
 
-void ili9341_write_frame_gb(uint16_t* buffer)
+void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 {
     short x, y;
 
@@ -412,141 +412,144 @@ void ili9341_write_frame_gb(uint16_t* buffer)
 
     if (buffer == NULL)
     {
-      // clear the buffer
-      memset(line[0], 0, 320 * sizeof(uint16_t));
+        // clear the buffer
+        memset(line[0], 0, 320 * sizeof(uint16_t));
 
-      // clear the screen
-      send_reset_drawing(0, 0, 320, 240);
+        // clear the screen
+        send_reset_drawing(0, 0, 320, 240);
 
-      for (y = 0; y < 240; ++y)
-      {
+        for (y = 0; y < 240; ++y)
+        {
         send_continue_line(line[0], 320, 1);
-      }
+        }
     }
     else
     {
-      uint16_t* framePtr = buffer;
+        uint16_t* framePtr = buffer;
 
-#if 1
-        // NOTE: LINE_COUNT must be 3 or greater
-
-        //send_reset_drawing(xs, ys, width, height);
-        const short outputWidth = 265; //GAMEBOY_WIDTH * 1.5;
-        const short outputHeight = 240; //GAMEBOY_HEIGHT * 1.5;
-
-        //send_reset_drawing(40, 12, outputWidth, outputHeight /*GAMEBOY_HEIGHT*/);
-        send_reset_drawing(26, 0, outputWidth, outputHeight /*GAMEBOY_HEIGHT*/);
-
-        uint8_t alt = 0;
-        for (y = 0; y < GAMEBOY_HEIGHT; y += 3)
+        if (scale)
         {
-            for (int i = 0; i < 3; ++i)
+            // NOTE: LINE_COUNT must be 3 or greater
+            const short outputWidth = 265;
+            const short outputHeight = 240;
+
+            send_reset_drawing(26, 0, outputWidth, outputHeight);
+
+            uint8_t alt = 0;
+            for (y = 0; y < GAMEBOY_HEIGHT; y += 3)
             {
-                // if((y + i) >= GAMEBOY_HEIGHT)
-                //   break;
-
-                // skip middle vertical line
-                int index = i * outputWidth * 2;
-                int bufferIndex = ((y + i) * GAMEBOY_WIDTH);
-
-                for (x = 0; x < GAMEBOY_WIDTH; x += 3)
+                for (int i = 0; i < 3; ++i)
                 {
-                    uint16_t a = framePtr[bufferIndex++];
-                    uint16_t b;
-                    uint16_t c;
+                    // skip middle vertical line
+                    int index = i * outputWidth * 2;
+                    int bufferIndex = ((y + i) * GAMEBOY_WIDTH);
 
-                    if (x < GAMEBOY_WIDTH - 1)
+                    for (x = 0; x < GAMEBOY_WIDTH; x += 3)
                     {
-                      b = framePtr[bufferIndex++];
-                      c = framePtr[bufferIndex++];
-                    }
-                    else
-                    {
-                      b = framePtr[bufferIndex++];
-                      c = 0;
-                    }
+                        uint16_t a = framePtr[bufferIndex++];
+                        uint16_t b;
+                        uint16_t c;
 
-                    uint16_t mid1 = Blend(a, b);
-                    uint16_t mid2 = Blend(b, c);
+                        if (x < GAMEBOY_WIDTH - 1)
+                        {
+                            b = framePtr[bufferIndex++];
+                            c = framePtr[bufferIndex++];
+                        }
+                        else
+                        {
+                            b = framePtr[bufferIndex++];
+                            c = 0;
+                        }
 
-                    line[alt][index++] = ((a >> 8) | ((a) << 8));
-                    line[alt][index++] = ((mid1 >> 8) | ((mid1) << 8));
-                    line[alt][index++] = ((b >> 8) | ((b) << 8));
-                    line[alt][index++] = ((mid2 >> 8) | ((mid2) << 8));
-                    line[alt][index++] = ((c >> 8) | ((c ) << 8));
+                        uint16_t mid1 = Blend(a, b);
+                        uint16_t mid2 = Blend(b, c);
+
+                        line[alt][index++] = ((a >> 8) | ((a) << 8));
+                        line[alt][index++] = ((mid1 >> 8) | ((mid1) << 8));
+                        line[alt][index++] = ((b >> 8) | ((b) << 8));
+                        line[alt][index++] = ((mid2 >> 8) | ((mid2) << 8));
+                        line[alt][index++] = ((c >> 8) | ((c ) << 8));
+                    }
                 }
+
+                // Blend top and bottom lines into middle
+                short sourceA = 0;
+                short sourceB = outputWidth * 2;
+                short sourceC = sourceB + (outputWidth * 2);
+
+                short output1 = outputWidth;
+                short output2 = output1 + (outputWidth * 2);
+
+                for (short j = 0; j < outputWidth; ++j)
+                {
+                    uint16_t a = line[alt][sourceA++];
+                    a = ((a >> 8) | ((a) << 8));
+
+                    uint16_t b = line[alt][sourceB++];
+                    b = ((b >> 8) | ((b) << 8));
+
+                    uint16_t c = line[alt][sourceC++];
+                    c = ((c >> 8) | ((c) << 8));
+
+                    uint16_t mid = Blend(a, b);
+                    mid = ((mid >> 8) | ((mid) << 8));
+
+                    line[alt][output1++] = mid;
+
+                    uint16_t mid2 = Blend(b, c);
+                    mid2 = ((mid2 >> 8) | ((mid2) << 8));
+
+                    line[alt][output2++] = mid2;
+                }
+
+                // send the data
+                send_continue_line(line[alt], outputWidth, 5);
+
+                // swap buffers
+                if (alt)
+                    alt = 0;
+                else
+                    alt = 1;
             }
-
-            // Blend top and bottom lines into middle
-            short sourceA = 0;
-            short sourceB = outputWidth * 2;
-            short sourceC = sourceB + (outputWidth * 2);
-
-            short output1 = outputWidth;
-            short output2 = output1 + (outputWidth * 2);
-
-            for (short j = 0; j < outputWidth; ++j)
-            {
-              uint16_t a = line[alt][sourceA++];
-              a = ((a >> 8) | ((a) << 8));
-
-              uint16_t b = line[alt][sourceB++];
-              b = ((b >> 8) | ((b) << 8));
-
-              uint16_t c = line[alt][sourceC++];
-              c = ((c >> 8) | ((c) << 8));
-
-              uint16_t mid = Blend(a, b);
-              mid = ((mid >> 8) | ((mid) << 8));
-
-              line[alt][output1++] = mid; //((mid >> 8) | ((mid & 0xff) << 8));
-
-              uint16_t mid2 = Blend(b, c);
-              mid2 = ((mid2 >> 8) | ((mid2) << 8));
-
-              line[alt][output2++] = mid2;
-            }
-
-            // send the data
-            //send_continue_wait();
-            send_continue_line(line[alt], outputWidth, 5);
-
-            // swap buffers
-            if (alt)
-              alt = 0;
-            else
-              alt = 1;
         }
-
-
-  #else
-        send_reset_drawing(80, 48, GAMEBOY_WIDTH, GAMEBOY_HEIGHT);
-
-        for (y = 0; y < GAMEBOY_HEIGHT; y += LINE_COUNT)
+        else
         {
-          int linesWritten = 0;
+            send_reset_drawing((320 / 2) - (GAMEBOY_WIDTH / 2),
+                (240 / 2) - (GAMEBOY_HEIGHT / 2),
+                GAMEBOY_WIDTH,
+                GAMEBOY_HEIGHT);
 
-          for (int i = 0; i < LINE_COUNT; ++i)
-          {
-              if((y + i) >= GAMEBOY_HEIGHT)
-                break;
+            uint8_t alt = 0;
 
-              int index = (i) * GAMEBOY_WIDTH;
-              int bufferIndex = ((y + i) * GAMEBOY_WIDTH);
+            for (y = 0; y < GAMEBOY_HEIGHT; y += LINE_COUNT)
+            {
+              int linesWritten = 0;
 
-              for (x = 0; x < GAMEBOY_WIDTH; ++x)
+              for (int i = 0; i < LINE_COUNT; ++i)
               {
-                uint16_t sample = framePtr[bufferIndex++];
+                  if((y + i) >= GAMEBOY_HEIGHT) break;
 
-                line[index++] = ((sample >> 8) | ((sample & 0xff) << 8));
+                  int index = (i) * GAMEBOY_WIDTH;
+                  int bufferIndex = ((y + i) * GAMEBOY_WIDTH);
+
+                  for (x = 0; x < GAMEBOY_WIDTH; ++x)
+                  {
+                    uint16_t sample = framePtr[bufferIndex++];
+                    line[alt][index++] = ((sample >> 8) | ((sample & 0xff) << 8));
+                  }
+
+                  ++linesWritten;
               }
 
-              ++linesWritten;
-          }
+              send_continue_line(line[alt], GAMEBOY_WIDTH, linesWritten);
 
-          send_continue_line(line, GAMEBOY_WIDTH, linesWritten);
+              // swap buffers
+              if (alt)
+                  alt = 0;
+              else
+                  alt = 1;
+            }
         }
-  #endif
     }
 
     send_continue_wait();

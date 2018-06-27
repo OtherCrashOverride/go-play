@@ -151,6 +151,8 @@ void run_to_vblank()
 uint16_t* menuFramebuffer = 0;
 
 volatile bool videoTaskIsRunning = false;
+bool scaling_enabled = true;
+bool previous_scale_enabled = true;
 
 void videoTask(void *arg)
 {
@@ -166,7 +168,14 @@ void videoTask(void *arg)
         if (param == 1)
             break;
 
-        ili9341_write_frame_gb(param);
+        if (previous_scale_enabled != scaling_enabled)
+        {
+            // Clear display
+            ili9341_write_frame_gb(NULL, true);
+            previous_scale_enabled = scaling_enabled;
+        }
+
+        ili9341_write_frame_gb(param, scaling_enabled);
         odroid_input_battery_level_read(&battery_state);
 
         xQueueReceive(vidQueue, &param, portMAX_DELAY);
@@ -491,7 +500,7 @@ void app_main(void)
     // Display
     ili9341_prepare();
     ili9341_init();
-    ili9341_write_frame_gb(NULL);
+    ili9341_write_frame_gb(NULL, true);
 
 
     // Boot state overrides
@@ -707,6 +716,14 @@ void app_main(void)
             odroid_audio_volume_change();
             printf("main: Volume=%d\n", odroid_audio_volume_get());
         }
+
+
+        // Scaling
+        if (joystick.values[ODROID_INPUT_START] && !lastJoysticState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
+        {
+            scaling_enabled = !scaling_enabled;
+        }
+
 
         pad_set(PAD_UP, joystick.values[ODROID_INPUT_UP]);
         pad_set(PAD_RIGHT, joystick.values[ODROID_INPUT_RIGHT]);
