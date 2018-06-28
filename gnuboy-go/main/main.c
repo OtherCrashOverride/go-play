@@ -255,7 +255,7 @@ static void SaveState()
 
         int prefixLength = strlen(StoragePath);
 
-        char* pathName = heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
+        char* pathName = malloc(1024);
         if (!pathName) abort();
 
         strcpy(pathName, StoragePath);
@@ -314,7 +314,7 @@ static void LoadState(const char* cartName)
 
         int prefixLength = strlen(StoragePath);
 
-        char* pathName = heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
+        char* pathName = malloc(1024);
         if (!pathName) abort();
 
         strcpy(pathName, StoragePath);
@@ -493,14 +493,6 @@ void app_main(void)
 
     odroid_input_gamepad_init();
 
-    // Audio hardware
-    odroid_audio_init(AUDIO_SAMPLE_RATE);
-
-
-    // Display
-    ili9341_prepare();
-    ili9341_init();
-    ili9341_write_frame_gb(NULL, true);
 
 
     // Boot state overrides
@@ -561,8 +553,35 @@ void app_main(void)
     }
 
 
-    displayBuffer[0] = malloc(160 * 144 * 2);
-    displayBuffer[1] = malloc(160 * 144 * 2);
+    // Disable LCD CD to prevent garbage
+    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
+
+    gpio_config_t io_conf = { 0 };
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+
+    gpio_config(&io_conf);
+    gpio_set_level(LCD_PIN_NUM_CS, 1);
+    
+
+    loader_init(NULL);
+
+
+    // Audio hardware
+    odroid_audio_init(AUDIO_SAMPLE_RATE);
+
+
+    // Display
+    ili9341_prepare();
+    ili9341_init();
+    ili9341_write_frame_gb(NULL, true);
+
+
+    displayBuffer[0] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
+    displayBuffer[1] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
 
     if (displayBuffer[0] == 0 || displayBuffer[1] == 0)
         abort();
@@ -596,7 +615,7 @@ void app_main(void)
 
     //debug_trace = 1;
 
-    loader_init(NULL);
+
 
     emu_reset();
 

@@ -28,6 +28,7 @@
 #include "sound.h"
 
 #include "../odroid/odroid_settings.h"
+#include "../odroid/odroid_sdcard.h"
 
 
 void* FlashAddress = 0;
@@ -191,29 +192,49 @@ int rom_load()
 	byte c, *data, *header;
 	int len = 0, rlen;
 
-	spi_flash_mmap_handle_t hrom;
-	const esp_partition_t* part;
-	esp_err_t err;
+	data = (void*)0x3f800000;
 
-	int32_t dataSlot = odroid_settings_DataSlot_get();
-	if (dataSlot < 0) dataSlot = 0;
-
-	part = esp_partition_find_first(0x40, dataSlot, NULL);
-	if (part == 0)
+	char* romPath = odroid_settings_RomFilePath_get();
+	if (!romPath)
 	{
-		printf("rom_load: esp_partition_find_first failed.\n");
-		abort();
+		printf("loader: Reading from flash.\n");
+
+		// copy from flash
+		spi_flash_mmap_handle_t hrom;
+
+		const esp_partition_t* part = esp_partition_find_first(0x40, 0, NULL);
+		if (part == 0)
+		{
+			printf("esp_partition_find_first failed.\n");
+			abort();
+		}
+
+		void* flashAddress;
+		for (size_t offset = 0; offset < 0x400000; offset += 0x100000)
+		{
+			esp_err_t err = esp_partition_read(part, offset, (void *)(data + offset), 0x100000);
+			if (err != ESP_OK)
+			{
+				printf("esp_partition_read failed. size = %x, offset = %x (%d)\n", part->size, offset, err);
+				abort();
+			}
+		}
+	}
+	else
+	{
+		printf("loader: Reading from sdcard.\n");
+
+		// copy from SD card
+		esp_err_t r = odroid_sdcard_open("/sd");
+		if (r != ESP_OK) abort();
+
+		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, data);
+		if (fileSize == 0) abort();
+
+		r = odroid_sdcard_close();
+		if (r != ESP_OK) abort();
 	}
 
-	FlashAddress = part->address;
-	printf("rom_load: found partition. address=%p\n", FlashAddress);
-
-	err = spi_flash_mmap(FlashAddress, 65536, SPI_FLASH_MMAP_DATA, (const void**)&data, &hrom);
-	if (err != ESP_OK)
-	{
-		printf("spi_flash_mmap failed. (%d)\n", err);
-		abort();
-	}
 
 	printf("Initialized. ROM@%p\n", data);
 	header = data;

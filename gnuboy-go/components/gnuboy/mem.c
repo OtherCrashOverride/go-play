@@ -18,89 +18,11 @@ struct mbc mbc;
 struct rom rom;
 struct ram ram;
 
-// 2MB address space = 32 * 64K pages
-#define BANK_CACHE_COUNT 16
-spi_flash_mmap_handle_t mapHandles[BANK_CACHE_COUNT];
-void* romDataPtrs[BANK_CACHE_COUNT];
-short bankCache[BANK_CACHE_COUNT];
-short bankEntryCount = 0;
 
-extern void* FlashAddress;
-
-// Flash pages are 64k. GBC pages are 16k.
-// There are 4 GBC pages in an ESP32 flash page
-// For 8MB rom, there are 128 (8M / 64k) flash pages
-byte* IRAM_ATTR GetRomPtr(short bank)
+static inline byte* GetRomPtr(short bank)
 {
-	byte* result = 0;
-	size_t page = bank >> 2;
-	size_t offset = (bank * 16384) - (page * 65536);
-
-	//printf("GetRomPtr: bank=%d, page=%d, offset=%d\n", bank, page, offset);
-
-	if (page == 0)
-	{
-		result = rom.bank[0] + offset;
-	}
-	else
-	{
-		// Check the cache
-		for (short i = 0; i < BANK_CACHE_COUNT; ++i)
-		{
-			if (bankCache[i] == page)
-			{
-				result = romDataPtrs[i] + offset;
-				break;
-			}
-		}
-
-		if (!result)
-		{
-			// Not in cache
-
-			// Find free slot
-			int slot;
-			if (bankEntryCount < BANK_CACHE_COUNT)
-			{
-				slot = bankEntryCount++;
-			}
-			else
-			{
-				// No free slots. Free slot 0
-				//printf("GetRomPtr: freeing page %d\n", bankCache[0]);
-
-				bankCache[0] = 0;
-				romDataPtrs[0] = NULL;
-				spi_flash_munmap(mapHandles[0]);
-
-				for (int i = 0; i < BANK_CACHE_COUNT - 1; ++i)
-				{
-					mapHandles[i] = mapHandles[i + 1];
-					romDataPtrs[i] = romDataPtrs[i + 1];
-					bankCache[i] = bankCache[i + 1];
-				}
-
-				slot = BANK_CACHE_COUNT - 1;
-			}
-
-			// Map page
-			bankCache[slot] = page;
-
-			size_t addr = FlashAddress + (page * 65536);
-
-			esp_err_t err = spi_flash_mmap(addr, 65536, SPI_FLASH_MMAP_DATA, (const void**)&romDataPtrs[slot], &mapHandles[slot]);
-			if (err != ESP_OK)
-			{
-				printf("spi_flash_mmap failed. (%d)\n", err);
-				abort();
-			}
-
-			result = romDataPtrs[slot] + offset;
-
-			//printf("GetRomPtr: mapped page %d\n", page);
-		}
-	}
-
+	// GBC pages are 16k.
+	byte* result = (byte*)0x3f800000 + (bank * 0x4000);
 	return result;
 }
 
