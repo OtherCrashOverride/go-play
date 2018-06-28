@@ -204,7 +204,7 @@ SNSS_WriteFileHeader (SNSS_FILE *snssFile)
 SNSS_RETURN_CODE
 SNSS_OpenFile (SNSS_FILE **snssFile, const char *filename, SNSS_OPEN_MODE mode)
 {
-   *snssFile = heap_caps_malloc(sizeof(SNSS_FILE), MALLOC_CAP_SPIRAM);
+   *snssFile = malloc(sizeof(SNSS_FILE));
    if (NULL == *snssFile)
    {
        abort();
@@ -371,7 +371,7 @@ SNSS_SkipNextBlock (SNSS_FILE *snssFile)
 static SNSS_RETURN_CODE
 SNSS_ReadBaseBlock (SNSS_FILE *snssFile)
 {
-   char* blockBytes = heap_caps_malloc(BASE_BLOCK_LENGTH, MALLOC_CAP_SPIRAM);
+   char* blockBytes = malloc(BASE_BLOCK_LENGTH);
    if (!blockBytes) abort();
 
    SnssBlockHeader header;
@@ -416,7 +416,7 @@ SNSS_WriteBaseBlock (SNSS_FILE *snssFile)
    SnssBlockHeader header;
    SNSS_RETURN_CODE returnCode;
 
-   char* blockBytes = heap_caps_malloc(BASE_BLOCK_LENGTH, MALLOC_CAP_SPIRAM);
+   char* blockBytes = malloc(BASE_BLOCK_LENGTH);
    if (!blockBytes) abort();
 
    unsigned short tempShort;
@@ -591,7 +591,7 @@ SNSS_ReadMapperBlock (SNSS_FILE *snssFile)
       return SNSS_READ_FAILED;
    }
 
-   if ((blockBytes = (char *) heap_caps_malloc(0x8 + 0x10 + 0x80, MALLOC_CAP_SPIRAM)) == NULL)
+   if ((blockBytes = (char *) malloc(0x8 + 0x10 + 0x80)) == NULL)
    {
       return SNSS_OUT_OF_MEMORY;
    }

@@ -20,35 +20,14 @@
 
 #include "../components/odroid/odroid_settings.h"
 #include "../components/odroid/odroid_system.h"
+#include "../components/odroid/odroid_sdcard.h"
 
+static char* romdata = NULL;
 
 char *osd_getromdata()
 {
-	char* romdata;
-	const esp_partition_t* part;
-	spi_flash_mmap_handle_t hrom;
-	esp_err_t err;
-
-
-	int32_t dataSlot = odroid_settings_DataSlot_get();
-	if (dataSlot < 0) dataSlot = 0;
-
-	part=esp_partition_find_first(0x40, dataSlot, NULL);
-	if (part==0)
-	{
-		printf("Couldn't find rom part!\n");
-		abort();
-	}
-
-	err=esp_partition_mmap(part, 0, 1*1024*1024, SPI_FLASH_MMAP_DATA, (const void**)&romdata, &hrom);
-	if (err!=ESP_OK)
-	{
-		printf("Couldn't map rom part!\n");
-		abort();
-	}
-
 	printf("Initialized. ROM@%p\n", romdata);
-    return (char*)romdata;
+	return (char*)romdata;
 }
 
 
@@ -56,9 +35,6 @@ char *osd_getromdata()
 
 static const char *TAG = "main";
 
-#define LCD_PIN_NUM_CS   CONFIG_HW_LCD_CS_GPIO
-
-unsigned char buffer[512];
 
 int app_main(void)
 {
@@ -127,6 +103,62 @@ int app_main(void)
 
 	int stopHeap = esp_get_free_heap_size();
 	printf("B HEAP:0x%x size=0x%x(%d)\n", stopHeap, startHeap - stopHeap, startHeap - stopHeap);
+
+
+
+	// Disable LCD CD to prevent garbage
+    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
+
+    gpio_config_t io_conf = { 0 };
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+
+    gpio_config(&io_conf);
+    gpio_set_level(LCD_PIN_NUM_CS, 1);
+
+
+	// Load ROM
+	romdata = (void*)0x3f800000;
+
+	char* romPath = odroid_settings_RomFilePath_get();
+	if (!romPath)
+	{
+		printf("osd_getromdata: Reading from flash.\n");
+
+		// copy from flash
+		spi_flash_mmap_handle_t hrom;
+
+		const esp_partition_t* part = esp_partition_find_first(0x40, 0, NULL);
+		if (part == 0)
+		{
+			printf("esp_partition_find_first failed.\n");
+			abort();
+		}
+
+		esp_err_t err = esp_partition_read(part, 0, (void *)romdata, 0x100000);
+		if (err != ESP_OK)
+		{
+			printf("esp_partition_read failed. size = %x (%d)\n", part->size, err);
+			abort();
+		}
+	}
+	else
+	{
+		printf("osd_getromdata: Reading from sdcard.\n");
+
+		// copy from SD card
+		esp_err_t r = odroid_sdcard_open("/sd");
+		if (r != ESP_OK) abort();
+
+		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, romdata);
+		if (fileSize == 0) abort();
+
+		r = odroid_sdcard_close();
+		if (r != ESP_OK) abort();
+	}
 
 
 	printf("NoFrendo start!\n");
