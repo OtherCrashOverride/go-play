@@ -17,10 +17,12 @@
 #include "../components/odroid/odroid_input.h"
 #include "../components/odroid/odroid_system.h"
 #include "../components/odroid/odroid_display.h"
+#include "../components/odroid/odroid_sdcard.h"
 
 #include "hourglass_empty_black_48dp.h"
 
 #include <dirent.h>
+
 
 
 #define AUDIO_SAMPLE_RATE (32000)
@@ -119,7 +121,7 @@ static void SaveState()
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
-        char* pathName = heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
+        char* pathName = malloc(1024);
         if (!pathName) abort();
 
         strcpy(pathName, StoragePath);
@@ -128,7 +130,7 @@ static void SaveState()
         strcat(pathName, ".sav");
 
 
-        printf("LoadState: pathName='%s'\n", pathName);
+        printf("SaveState: pathName='%s'\n", pathName);
 
         FILE* f = fopen(pathName, "w");
 
@@ -175,7 +177,7 @@ static void LoadState(const char* cartName)
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
-        char* pathName = heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
+        char* pathName = malloc(1024);
         if (!pathName) abort();
 
         strcpy(pathName, StoragePath);
@@ -296,13 +298,14 @@ void system_load_sram(void)
     //sram_load();
 }
 
-char cartName[1024];
+//char cartName[1024];
 void app_main(void)
 {
-    nvs_flash_init();
-    odroid_system_init();
-
     printf("smsplus start.\n");
+
+    nvs_flash_init();
+
+    odroid_system_init();
 
     // Joystick.
     odroid_input_gamepad_init();
@@ -314,6 +317,21 @@ void app_main(void)
 
 
     ili9341_prepare();
+
+
+    // Disable LCD CD to prevent garbage
+    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
+
+    gpio_config_t io_conf = { 0 };
+    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+
+    gpio_config(&io_conf);
+    gpio_set_level(LCD_PIN_NUM_CS, 1);
+
 
     switch (esp_sleep_get_wakeup_cause())
     {
@@ -370,6 +388,9 @@ void app_main(void)
     }
 
 
+    void* const romAddress = (void*)0x3f800000;
+    size_t cartSize = 1024 * 1024;
+
     char* cartName = odroid_settings_RomFilePath_get();
     if (!cartName)
     {
@@ -388,8 +409,49 @@ void app_main(void)
         }
 
         cartName[1023] = 0;
-    }
 
+
+        // copy from flash
+        spi_flash_mmap_handle_t hrom;
+
+        const esp_partition_t* part = esp_partition_find_first(0x40, 0, NULL);
+        if (part == 0)
+        {
+        	printf("esp_partition_find_first failed.\n");
+        	abort();
+        }
+
+        void* flashAddress;
+        esp_err_t err = esp_partition_mmap(part, 0, cartSize, SPI_FLASH_MMAP_DATA, (const void**)&flashAddress, &hrom);
+        if (err != ESP_OK)
+        {
+            printf("esp_partition_mmap failed. (%d)\n", err);
+            abort();
+        }
+
+        memcpy(romAddress, flashAddress, cartSize);
+    }
+    else
+    {
+        printf("app_main: loading from sdcard.\n");
+
+        // copy from SD card
+        esp_err_t r = odroid_sdcard_open("/sd");
+        if (r != ESP_OK) abort();
+
+        char* path = cartName; //(char*)malloc(1024);
+        // if (!path) abort();
+        //
+        // strcpy(path, "/sd/roms/sms/");
+        // strcat(path, cartName);
+
+        cartSize = odroid_sdcard_copy_file_to_memory(path, romAddress);
+        //free(path);
+        if (cartSize == 0) abort();
+
+        r = odroid_sdcard_close();
+        if (r != ESP_OK) abort();
+    }
 
     printf("app_main: cartName='%s'\n", cartName);
 
@@ -403,13 +465,15 @@ void app_main(void)
         cart.type = TYPE_GG;
     }
 
-    //TODO: free(cartName);
+    free(cartName);
 
 
     framebuffer[0] = heap_caps_malloc(256 * 192, MALLOC_CAP_8BIT | MALLOC_CAP_DMA); //malloc(256 * 192);
+    if (!framebuffer[0]) abort();
     printf("app_main: framebuffer[0]=%p\n", framebuffer[0]);
 
     framebuffer[1] = heap_caps_malloc(256 * 192, MALLOC_CAP_8BIT | MALLOC_CAP_DMA); //malloc(256 * 192);
+    if (!framebuffer[1]) abort();
     printf("app_main: framebuffer[1]=%p\n", framebuffer[1]);
 
 
@@ -444,30 +508,8 @@ void app_main(void)
 	bitmap.depth = 8;
     bitmap.data = framebuffer[0];
 
-
-    int cartSize = 1024 * 1024; //262144;
-
     cart.pages = (cartSize / 0x4000);
-
-
-    int32_t dataSlot = odroid_settings_DataSlot_get();
-	if (dataSlot < 0) dataSlot = 0;
-
-    spi_flash_mmap_handle_t hrom;
-
-	const esp_partition_t* part = esp_partition_find_first(0x40, dataSlot, NULL);
-	if (part == 0)
-	{
-		printf("Couldn't find rom part! (dataSlot=%d)\n", dataSlot);
-		abort();
-	}
-
-    esp_err_t err = esp_partition_mmap(part, 0, cartSize, SPI_FLASH_MMAP_DATA, (const void**)&cart.rom, &hrom);
-    if (err != ESP_OK)
-    {
-        printf("spi_flash_mmap failed. (%d)\n", err);
-        abort();
-    }
+    cart.rom = romAddress;
 
 
     system_init2(AUDIO_SAMPLE_RATE);

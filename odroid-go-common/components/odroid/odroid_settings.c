@@ -37,7 +37,7 @@ char* odroid_util_GetFileName(const char* path)
 
 	int size = length - fileNameStart + 1;
 
-	char* result = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+	char* result = malloc(size);
 	if (!result) abort();
 
 	result[size - 1] = 0;
@@ -71,7 +71,7 @@ char* odroid_util_GetFileExtenstion(const char* path)
 
 	int size = length - extensionStart + 1;
 
-	char* result = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+	char* result = malloc(size);
 	if (!result) abort();
 
 	result[size - 1] = 0;
@@ -106,7 +106,7 @@ char* odroid_util_GetFileNameWithoutExtension(const char* path)
 
 	int size = extensionStart + 1;
 
-	char* result = heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+	char* result = malloc(size);
 	if (!result) abort();
 
 	result[size - 1] = 0;
@@ -213,7 +213,7 @@ char* odroid_settings_RomFilePath_get()
     err = nvs_get_str(my_handle, NvsKey_RomFilePath, NULL, &required_size);
     if (err == ESP_OK)
     {
-        char* value = heap_caps_malloc(required_size, MALLOC_CAP_SPIRAM);
+        char* value = malloc(required_size);
         if (!value) abort();
 
         err = nvs_get_str(my_handle, NvsKey_RomFilePath, value, &required_size);
