@@ -102,6 +102,33 @@ esp_err_t odroid_sdcard_close()
 }
 
 
+size_t odroid_sdcard_get_filesize(const char* path)
+{
+    size_t ret = 0;
+
+    if (!isOpen)
+    {
+        printf("odroid_sdcard_get_filesize: not open.\n");
+    }
+    else
+    {
+        FILE* f = fopen(path, "rb");
+        if (f == NULL)
+        {
+            printf("odroid_sdcard_get_filesize: fopen failed.\n");
+        }
+        else
+        {
+            // get the file size
+            fseek(f, 0, SEEK_END);
+            ret = ftell(f);
+            fseek(f, 0, SEEK_SET);
+        }
+    }
+
+    return ret;
+}
+
 size_t odroid_sdcard_copy_file_to_memory(const char* path, void* ptr)
 {
     size_t ret = 0;
@@ -125,13 +152,18 @@ size_t odroid_sdcard_copy_file_to_memory(const char* path, void* ptr)
             }
             else
             {
-                // get the file size
-                fseek(f, 0, SEEK_END);
-                size_t fileSize = ftell(f);
-                fseek(f, 0, SEEK_SET);
-
                 // copy
-                ret = fread(ptr, 1, fileSize, f);
+                const size_t BLOCK_SIZE = 512;
+                while(true)
+                {
+                    __asm__("memw");
+                    size_t count = fread((uint8_t*)ptr + ret, 1, BLOCK_SIZE, f);
+                    __asm__("memw");
+
+                    ret += count;
+
+                    if (count < BLOCK_SIZE) break;
+                }
             }
         }
     }
