@@ -565,7 +565,7 @@ void app_main(void)
 
     gpio_config(&io_conf);
     gpio_set_level(LCD_PIN_NUM_CS, 1);
-    
+
 
     loader_init(NULL);
 
@@ -641,18 +641,18 @@ void app_main(void)
     // Note: Magic number obtained by adjusting until audio buffer overflows stop.
     const int audioBufferLength = AUDIO_SAMPLE_RATE / 10 + 1;
     //printf("CHECKPOINT AUDIO: HEAP:0x%x - allocating 0x%x\n", esp_get_free_heap_size(), audioBufferLength * sizeof(int16_t) * 2 * 2);
-
+    const int AUDIO_BUFFER_SIZE = audioBufferLength * sizeof(int16_t) * 2;
 
     // pcm.len = count of 16bit samples (x2 for stereo)
     memset(&pcm, 0, sizeof(pcm));
     pcm.hz = AUDIO_SAMPLE_RATE;
   	pcm.stereo = 1;
   	pcm.len = /*pcm.hz / 2*/ audioBufferLength;
-  	pcm.buf = malloc(/*pcm.len * 2 * sizeof(int16_t)*/audioBufferLength * sizeof(int16_t) * 2);
+  	pcm.buf = heap_caps_malloc(AUDIO_BUFFER_SIZE, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
   	pcm.pos = 0;
 
     audioBuffer[0] = pcm.buf;
-    audioBuffer[1] = malloc(/*pcm.len * 2 * sizeof(int16_t)*/ audioBufferLength * sizeof(int16_t) * 2);
+    audioBuffer[1] = heap_caps_malloc(AUDIO_BUFFER_SIZE, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
 
     if (audioBuffer[0] == 0 || audioBuffer[1] == 0)
         abort();
