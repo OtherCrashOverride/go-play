@@ -21,3 +21,4 @@ void ili9341_write_frame_rectangleLE(short left, short top, short width, short h
 void display_tasktonotify_set(int value);
 
 int is_backlight_initialized();
+void odroid_display_show_splash();

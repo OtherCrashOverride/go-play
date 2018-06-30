@@ -553,33 +553,21 @@ void app_main(void)
     }
 
 
-    // Disable LCD CD to prevent garbage
-    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
+    // Display
+    ili9341_prepare();
+    ili9341_init();
+    odroid_display_show_splash();
 
-    gpio_config_t io_conf = { 0 };
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-
-    gpio_config(&io_conf);
-    gpio_set_level(LCD_PIN_NUM_CS, 1);
-
-
+    // Load ROM
     loader_init(NULL);
 
+    // Clear display
+    ili9341_write_frame_gb(NULL, true);
 
     // Audio hardware
     odroid_audio_init(AUDIO_SAMPLE_RATE);
 
-
-    // Display
-    ili9341_prepare();
-    ili9341_init();
-    ili9341_write_frame_gb(NULL, true);
-
-
+    // Allocate display buffers
     displayBuffer[0] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     displayBuffer[1] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
 
@@ -588,15 +576,12 @@ void app_main(void)
 
     framebuffer = displayBuffer[0];
 
-
     for (int i = 0; i < 2; ++i)
     {
         memset(displayBuffer[i], 0, 160 * 144 * 2);
     }
 
     printf("app_main: displayBuffer[0]=%p, [1]=%p\n", displayBuffer[0], displayBuffer[1]);
-
-
 
     // blue led
     gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT);
@@ -605,7 +590,6 @@ void app_main(void)
     //  Charge
     odroid_input_battery_level_init();
 
-
     // video
     vidQueue = xQueueCreate(1, sizeof(uint16_t*));
     audioQueue = xQueueCreate(1, sizeof(uint16_t*));
@@ -613,9 +597,8 @@ void app_main(void)
     xTaskCreatePinnedToCore(&videoTask, "videoTask", 1024, NULL, 5, NULL, 1);
     xTaskCreatePinnedToCore(&audioTask, "audioTask", 2048, NULL, 5, NULL, 1); //768
 
+
     //debug_trace = 1;
-
-
 
     emu_reset();
 
