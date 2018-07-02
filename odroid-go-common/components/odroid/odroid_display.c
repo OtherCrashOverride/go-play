@@ -410,6 +410,8 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 {
     short x, y;
 
+    odroid_display_lock_gb_display();
+
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     if (buffer == NULL)
@@ -556,6 +558,8 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 
     send_continue_wait();
 
+    odroid_display_unlock_gb_display();
+
     //printf("FRAME: xs=%d, ys=%d, width=%d, height=%d, data=%p\n", xs, ys, width, height, data);
     //printf("sizeof(RGB565)=%d, sizeof(Pixel) =%d\n", sizeof(RGB565), sizeof(Pixel));
 }
@@ -607,7 +611,7 @@ void ili9341_init()
     devcfg.queue_size = 7;                          //We want to be able to queue 7 transactions at a time
     devcfg.pre_cb = ili_spi_pre_transfer_callback;  //Specify pre-transfer callback to handle D/C line
     devcfg.post_cb = ili_spi_post_transfer_callback;
-    devcfg.flags = SPI_DEVICE_HALFDUPLEX;
+    devcfg.flags = 0; //SPI_DEVICE_HALFDUPLEX;
 
     //Initialize the SPI bus
     ret=spi_bus_initialize(VSPI_HOST, &buscfg, 1);
@@ -1282,4 +1286,43 @@ void odroid_display_show_splash()
 
         //printf("odroid_display_show_splash: removed pending transfer.\n");
     }
+}
+
+void odroid_display_drain_spi()
+{
+    // Drain SPI queue
+    xTaskToNotify = 0;
+
+    esp_err_t err = ESP_OK;
+
+    while(err == ESP_OK)
+    {
+        spi_transaction_t* trans_desc;
+        err = spi_device_get_trans_result(spi, &trans_desc, 0);
+
+        //printf("odroid_display_show_splash: removed pending transfer.\n");
+    }
+}
+
+SemaphoreHandle_t gb_mutex = NULL;
+
+void odroid_display_lock_gb_display()
+{
+    if (!gb_mutex)
+    {
+        gb_mutex = xSemaphoreCreateMutex();
+        if (!gb_mutex) abort();
+    }
+
+    if (xSemaphoreTake(gb_mutex, 1000 / portTICK_RATE_MS) != pdTRUE)
+    {
+        abort();
+    }
+}
+
+void odroid_display_unlock_gb_display()
+{
+    if (!gb_mutex) abort();
+
+    xSemaphoreGive(gb_mutex);
 }

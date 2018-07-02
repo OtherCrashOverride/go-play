@@ -32,6 +32,8 @@
 
 
 void* FlashAddress = 0;
+FILE* RomFile = NULL;
+uint8_t BankCache[512 / 8];
 
 
 #ifndef GNUBOY_NO_MINIZIP
@@ -228,11 +230,39 @@ int rom_load()
 		esp_err_t r = odroid_sdcard_open("/sd");
 		if (r != ESP_OK) abort();
 
-		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, data);
-		if (fileSize == 0) abort();
 
-		r = odroid_sdcard_close();
-		if (r != ESP_OK) abort();
+		// load the first 16k
+		RomFile = fopen(romPath, "rb");
+		if (RomFile == NULL)
+		{
+			printf("loader: fopen failed.\n");
+			abort();
+		}
+
+		// copy
+#if 0
+		const size_t BLOCK_SIZE = 512;
+		for (size_t offset = 0; offset < 0x4000; offset += BLOCK_SIZE)
+		{
+			size_t count = fread((uint8_t*)data + offset, 1, BLOCK_SIZE, RomFile);
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("nop");
+			__asm__("memw");
+
+			if (count < BLOCK_SIZE) break;
+		}
+#else
+		size_t count = fread((uint8_t*)data, 1, 0x4000, RomFile);
+		if (count < 0x4000)
+		{
+			printf("loader: fread failed.\n");
+			abort();
+		}
+#endif
+
+		BankCache[0] = 1;
 	}
 
 

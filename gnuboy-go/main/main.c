@@ -556,7 +556,7 @@ void app_main(void)
     // Display
     ili9341_prepare();
     ili9341_init();
-    odroid_display_show_splash();
+    //odroid_display_show_splash();
 
     // Load ROM
     loader_init(NULL);

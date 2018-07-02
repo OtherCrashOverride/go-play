@@ -14,15 +14,73 @@
 #include "esp_partition.h"
 #include "esp_attr.h"
 
+#include "../odroid/odroid_display.h"
+
+
 struct mbc mbc;
 struct rom rom;
 struct ram ram;
 
+extern FILE* RomFile;
+extern uint8_t BankCache[512 / 8];
 
 static inline byte* GetRomPtr(short bank)
 {
 	// GBC pages are 16k.
-	byte* result = (byte*)0x3f800000 + (bank * 0x4000);
+	const size_t BANK_SIZE = 0x4000;
+	byte* const PSRAM = (byte*)0x3f800000;
+	const size_t OFFSET = bank * BANK_SIZE;
+
+	if (RomFile)
+	{
+		short slot = bank >> 3;
+		uint8_t bit = 1 << (bank & 0x7);
+
+		if (!(BankCache[slot] & bit))
+		{
+			//printf("GetRomPtr: Loading bank=%d, slot=%d, bit=%d.\n", bank, slot, bit);
+
+			// Stop the SPI bus
+			odroid_display_lock_gb_display();
+
+			odroid_display_drain_spi();
+
+			// Load the 16K page
+			if (fseek(RomFile, OFFSET, SEEK_SET))
+			{
+				printf("GetRomPtr: fseek failed. OFFSET=%d\n", OFFSET);
+				abort();
+			}
+
+	#if 0
+			const size_t BLOCK_SIZE = 512;
+			for (size_t offset = 0; offset < BANK_SIZE; offset += BLOCK_SIZE)
+			{
+				size_t count = fread((uint8_t*)PSRAM + (bank * BANK_SIZE) + offset, 1, BLOCK_SIZE, RomFile);
+				__asm__("nop");
+				__asm__("nop");
+				__asm__("nop");
+				__asm__("nop");
+				__asm__("memw");
+
+				if (count < BLOCK_SIZE) break;
+			}
+	#else
+			size_t count = fread((uint8_t*)PSRAM + OFFSET, 1, BANK_SIZE, RomFile);
+			if (count < BANK_SIZE)
+			{
+				printf("GetRomPtr: fread failed. bank=%d, count=%d\n", bank, count);
+				abort();
+			}
+	#endif
+
+			BankCache[slot] |= bit;
+
+			odroid_display_unlock_gb_display();
+		}
+	}
+
+	byte* result = PSRAM + OFFSET;
 	return result;
 }
 

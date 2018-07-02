@@ -22,3 +22,6 @@ void display_tasktonotify_set(int value);
 
 int is_backlight_initialized();
 void odroid_display_show_splash();
+void odroid_display_drain_spi();
+void odroid_display_lock_gb_display();
+void odroid_display_unlock_gb_display();
