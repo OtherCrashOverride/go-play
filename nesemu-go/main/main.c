@@ -22,12 +22,12 @@
 #include "../components/odroid/odroid_system.h"
 #include "../components/odroid/odroid_sdcard.h"
 
-static char* romdata = NULL;
+static char* ROM_DATA = (char*)0x3f800000;;
 
 char *osd_getromdata()
 {
-	printf("Initialized. ROM@%p\n", romdata);
-	return (char*)romdata;
+	printf("Initialized. ROM@%p\n", ROM_DATA);
+	return (char*)ROM_DATA;
 }
 
 
@@ -121,8 +121,6 @@ int app_main(void)
 
 
 	// Load ROM
-	romdata = (void*)0x3f800000;
-
 	char* romPath = odroid_settings_RomFilePath_get();
 	if (!romPath)
 	{
@@ -138,7 +136,7 @@ int app_main(void)
 			abort();
 		}
 
-		esp_err_t err = esp_partition_read(part, 0, (void *)romdata, 0x100000);
+		esp_err_t err = esp_partition_read(part, 0, (void*)ROM_DATA, 0x100000);
 		if (err != ESP_OK)
 		{
 			printf("esp_partition_read failed. size = %x (%d)\n", part->size, err);
@@ -153,11 +151,14 @@ int app_main(void)
 		esp_err_t r = odroid_sdcard_open("/sd");
 		if (r != ESP_OK) abort();
 
-		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, romdata);
+		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, ROM_DATA);
+		printf("app_main: fileSize=%d\n", fileSize);
 		if (fileSize == 0) abort();
 
 		r = odroid_sdcard_close();
 		if (r != ESP_OK) abort();
+
+		free(romPath);
 	}
 
 
