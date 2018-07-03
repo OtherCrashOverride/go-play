@@ -180,7 +180,7 @@ bool mmc_peek(int map_num)
 
 static void mmc_setpages(void)
 {
-   log_printf("setting up mapper %d\n", mmc.intf->number);
+   printf("setting up mapper %d\n", mmc.intf->number);
 
    /* Switch ROM into CPU space, set VROM/VRAM (done for ALL ROMs) */
    mmc_bankrom(16, 0x8000, 0);
