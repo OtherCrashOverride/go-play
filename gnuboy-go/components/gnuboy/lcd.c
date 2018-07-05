@@ -640,7 +640,10 @@ void IRAM_ATTR lcd_refreshline()
 	if ((frame % 7) == 0) ++frame;
 
 	if (!(R_LCDC & 0x80))
-		return; /* should not happen... */
+	{
+		memset(fb.ptr, 0xff, 144 * 160 * 2);
+		return;
+	}
 
 	L = R_LY;
 	X = R_SCX;
