@@ -83,7 +83,7 @@ uint8 *getCache(int tile, int attr) {
 		}
 
 		if (n==CACHEDTILES) {
-			printf("Eek, tile cache overflow\n");
+			//printf("Eek, tile cache overflow\n");
 			//Crap, out of cache. Kill a tile.
 			vramMarkTileDirty(cacheKillPtr++);
 			if (cacheKillPtr>=512) cacheKillPtr=0;
