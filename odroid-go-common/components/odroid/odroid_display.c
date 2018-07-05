@@ -1032,7 +1032,7 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
             const uint16_t displayWidth = 320 - 10;
             const uint16_t top = (240 - NES_GAME_HEIGHT) / 2;
 
-            send_reset_drawing(0, top, displayWidth, NES_GAME_HEIGHT);
+            send_reset_drawing((320 / 2) - (displayWidth / 2), top, displayWidth, NES_GAME_HEIGHT);
 
             uint8_t alt = 0;
 
