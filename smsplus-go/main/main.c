@@ -278,16 +278,15 @@ static void DoHome()
     // Set factory app
     const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
         ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
-    if (partition == NULL)
+    if (partition != NULL)
     {
-        abort();
+        err = esp_ota_set_boot_partition(partition);
+        if (err != ESP_OK)
+        {
+            abort();
+        }
     }
 
-    err = esp_ota_set_boot_partition(partition);
-    if (err != ESP_OK)
-    {
-        abort();
-    }
 
     // Reset
     esp_restart();
