@@ -46,12 +46,14 @@ struct scan scan;
 
 
 static int sprsort = 1;
-static int sprdebug;
+static int sprdebug = 0;
 
 // BGR
-#define DEF_PAL { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 }
-
-static int dmg_pal[4][4] = { DEF_PAL, DEF_PAL, DEF_PAL, DEF_PAL };
+#if 0
+static int dmg_pal[4] = { 0xffffff, 0x808080, 0x404040, 0x000000 };
+#else
+static int dmg_pal[4] = { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 };
+#endif
 
 static byte *vdest;
 
@@ -141,8 +143,8 @@ static const short DRAM_ATTR wraptable[64] =
 
 static void IRAM_ATTR tilebuf()
 {
-	byte i, cnt;
-	short base;
+	int i, cnt;
+	int base;
 	byte *tilemap, *attrmap;
 	int *tilebuf;
 	short *wrap;
@@ -235,7 +237,7 @@ static void IRAM_ATTR tilebuf()
 
 static void IRAM_ATTR bg_scan()
 {
-	byte cnt;
+	int cnt;
 	byte *src, *dest;
 	int *tile;
 
@@ -299,7 +301,7 @@ static void IRAM_ATTR bg_scan()
 
 static void IRAM_ATTR wnd_scan()
 {
-	byte cnt;
+	int cnt;
 	byte *src, *dest;
 	int *tile;
 
@@ -342,7 +344,7 @@ inline static int priused(void *attr)
 
 static void IRAM_ATTR bg_scan_pri()
 {
-	byte cnt, i;
+	int cnt, i;
 	byte *src, *dest;
 
 	if (WX <= 0) return;
@@ -372,7 +374,7 @@ static void IRAM_ATTR bg_scan_pri()
 
 static void IRAM_ATTR wnd_scan_pri()
 {
-	byte cnt, i;
+	int cnt, i;
 	byte *src, *dest;
 
 	if (WX >= 160) return;
@@ -399,7 +401,7 @@ static void IRAM_ATTR wnd_scan_pri()
 #ifndef ASM_BG_SCAN_COLOR
 static void IRAM_ATTR bg_scan_color()
 {
-	byte cnt;
+	int cnt;
 	byte *src, *dest;
 	int *tile;
 
@@ -427,7 +429,7 @@ static void IRAM_ATTR bg_scan_color()
 
 static void IRAM_ATTR wnd_scan_color()
 {
-	byte cnt;
+	int cnt;
 	byte *src, *dest;
 	int *tile;
 
@@ -454,7 +456,7 @@ inline static void recolor(byte *buf, byte fill, int cnt)
 
 static void IRAM_ATTR spr_count()
 {
-	byte i;
+	int i;
 	struct obj *o;
 
 	NS = 0;
@@ -477,10 +479,10 @@ static struct vissprite ts[10];
 
 static void IRAM_ATTR spr_enum()
 {
-	short i, j;
+	int i, j;
 	struct obj *o;
-	short v, pat;
-	short l, x;
+	int v, pat;
+	int l, x;
 
 	NS = 0;
 	if (!(R_LCDC & 0x02)) return;
@@ -545,7 +547,7 @@ static void IRAM_ATTR spr_enum()
 #else
 	int* vsPtr = (int*)VS;
 	int* tsPtr = (int*)ts;
-	short count = 16;
+	int count = 16;
 	while(count--)
 	{
 		vsPtr[0] = tsPtr[0];
@@ -559,7 +561,7 @@ static byte bgdup[256];
 
 static void IRAM_ATTR spr_scan()
 {
-	short i, x;
+	int i, x;
 	byte pal, b, ns = NS;
 	byte *src, *dest, *bg, *pri;
 	struct vissprite *vs;
@@ -696,30 +698,41 @@ void IRAM_ATTR lcd_refreshline()
 
 inline static void updatepalette(int i)
 {
-	int c, r, g, b, y, u, v, rr, gg;
+	short c;
+	short r, g, b; //, y, u, v, rr, gg;
 
-	c = (lcd.pal[i<<1] | ((int)lcd.pal[(i<<1)|1] << 8)) & 0x7FFF;
+	short low = lcd.pal[i << 1];
+	short high = lcd.pal[(i << 1) | 1];
 
-	r = (c & 0x001F);
-	g = (c & 0x03E0) >> 4;
-	b = (c & 0x7C00) >> 10;
-	PAL2[i] = (r << 11) | (g << 5) | (b);
+	c = (low | (high << 8)) & 0x7fff;
 
-	//printf("updatepalette: i=%d, PAL2[i]=0x%x\n", i, PAL2[i]);
+	//bit 0-4 red
+	r = c & 0x1f;
+
+	// bit 5-9 green
+	g = (c >> 5) & 0x1f;
+
+	// bit 10-14 blue
+	b = (c >> 10) & 0x1f;
+
+	PAL2[i] = (r << 11) | (g << (5 + 1)) | (b);
 }
 
 inline void pal_write(int i, byte b)
 {
-	if (lcd.pal[i] == b) return;
-	lcd.pal[i] = b;
-	updatepalette(i>>1);
+	if (lcd.pal[i] != b)
+	{
+		lcd.pal[i] = b;
+		updatepalette(i>>1);
+	}
 }
 
 void IRAM_ATTR pal_write_dmg(int i, int mapnum, byte d)
 {
 	int j;
-	int *cmap = dmg_pal[mapnum];
-	int c, r, g, b;
+	int * const cmap = dmg_pal;
+	int c;
+	int r, g, b;
 
 	if (hw.cgb) return;
 
@@ -729,11 +742,14 @@ void IRAM_ATTR pal_write_dmg(int i, int mapnum, byte d)
 		r = (c & 0xf8) >> 3;
 		g = (c & 0xf800) >> 6;
 		b = (c & 0xf80000) >> 9;
-		c = r|g|b;
+		c = r | g | b;
+
 		/* FIXME - handle directly without faking cgb */
 		pal_write(i+j, c & 0xff);
 		pal_write(i+j+1, c >> 8);
 	}
+
+	printf("pal_write_dmg: i=%d, d=0x%x\n", i , d);
 }
 
 inline void vram_write(int a, byte b)
@@ -759,8 +775,13 @@ void pal_dirty()
 		pal_write_dmg(64, 2, R_OBP0);
 		pal_write_dmg(72, 3, R_OBP1);
 	}
-	for (i = 0; i < 64; i++)
-		updatepalette(i);
+	else
+	{
+		for (i = 0; i < 64; i++)
+		{
+			updatepalette(i);
+		}
+	}
 }
 
 void lcd_reset()
