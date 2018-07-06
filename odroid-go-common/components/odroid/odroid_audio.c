@@ -12,11 +12,8 @@
 #define I2S_NUM (I2S_NUM_0)
 #define BUILTIN_DAC_ENABLED 1
 
-static float Volume = 1.0f;
-static odroid_volume_level volumeLevel = ODROID_VOLUME_LEVEL3;
-static int volumeLevels[] = {0, 150, 500, 1000};
+static odroid_volume_level volumeLevel = ODROID_VOLUME_LEVEL4;
 static int audio_sample_rate;
-
 
 odroid_volume_level odroid_audio_volume_get()
 {
@@ -32,7 +29,6 @@ void odroid_audio_volume_set(odroid_volume_level value)
     }
 
     volumeLevel = value;
-    Volume = (float)volumeLevels[value] * 0.001f;
 }
 
 void odroid_audio_volume_change()
@@ -134,23 +130,27 @@ void odroid_audio_terminate()
 
 void odroid_audio_submit(short* stereoAudioBuffer, int frameCount)
 {
+
     short currentAudioSampleCount = frameCount * 2;
 
 #if BUILTIN_DAC_ENABLED
     // Convert for built in DAC
     for (short i = 0; i < currentAudioSampleCount; i += 2)
     {
+
+        //convert stereo channels to mono by adding left and right channels to create a 17 bit value.
         int32_t sample = stereoAudioBuffer[i];
         sample += stereoAudioBuffer[i + 1];
-        sample >>= 1;
+//      sample += 0x8000;
+        sample += 0x10000; //ensure 17bit integer is positive to avoid bitshifting negative signed integer.
+        sample >>= volumeLevel; //Max volume is 1 as we need to convert back to 16bits.
 
-        sample *= Volume;
+        int16_t dac0 = volumeLevel ? (unsigned short)sample : 0x0000;
 
-
-        int32_t dac0 = (sample + 0x8000);
-        const int32_t dac1 = volumeLevel ? 0x8000 : 0x0000;
+        const int16_t dac1 = volumeLevel ? 0x8000 : 0x0000;
         stereoAudioBuffer[i] = (int16_t)dac1;
-        stereoAudioBuffer[i + 1] = (int16_t)dac0;
+        stereoAudioBuffer[i + 1] = dac0;
+
     }
 
 #endif
@@ -162,6 +162,7 @@ void odroid_audio_submit(short* stereoAudioBuffer, int frameCount)
         printf("i2s_write_bytes: count (%d) != len (%d)\n", count, len);
         abort();
     }
+
 }
 
 int odroid_audio_sample_rate_get()
