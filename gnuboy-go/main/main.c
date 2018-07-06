@@ -430,7 +430,8 @@ static void DoMenuHome()
 
 
     // Set factory app
-    const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
+    const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
+        ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
     if (partition == NULL)
     {
         abort();
