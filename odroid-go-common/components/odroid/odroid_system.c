@@ -4,10 +4,29 @@
 #include "esp_system.h"
 #include "esp_event.h"
 #include "driver/rtc_io.h"
+#include "esp_partition.h"
+#include "esp_ota_ops.h"
 
 #include "odroid_input.h"
 
 static bool system_initialized = false;
+
+void odroid_system_application_set(int slot)
+{
+    const esp_partition_t* partition = esp_partition_find_first(
+        ESP_PARTITION_TYPE_APP,
+        ESP_PARTITION_SUBTYPE_APP_OTA_MIN + slot,
+        NULL);
+    if (partition != NULL)
+    {
+        esp_err_t err = esp_ota_set_boot_partition(partition);
+        if (err != ESP_OK)
+        {
+            printf("odroid_system_application_set: esp_ota_set_boot_partition failed.\n");
+            abort();
+        }
+    }
+}
 
 void odroid_system_sleep()
 {

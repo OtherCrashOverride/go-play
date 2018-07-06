@@ -275,17 +275,8 @@ static void DoHome()
     SaveState();
 
 
-    // Set factory app
-    const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP,
-        ESP_PARTITION_SUBTYPE_APP_OTA_0, NULL);
-    if (partition != NULL)
-    {
-        err = esp_ota_set_boot_partition(partition);
-        if (err != ESP_OK)
-        {
-            abort();
-        }
-    }
+    // Set menu application
+    odroid_system_application_set(0);
 
 
     // Reset
@@ -356,18 +347,8 @@ void app_main(void)
                 // Force return to factory app to recover from
                 // ROM loading crashes
 
-                // Set factory app
-                const esp_partition_t* partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
-                if (partition == NULL)
-                {
-                    abort();
-                }
-
-                esp_err_t err = esp_ota_set_boot_partition(partition);
-                if (err != ESP_OK)
-                {
-                    abort();
-                }
+                // Set menu application
+                odroid_system_application_set(0);
 
                 // Reset
                 esp_restart();
