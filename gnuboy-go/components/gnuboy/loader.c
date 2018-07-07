@@ -328,14 +328,35 @@ int rom_load()
 			break;
 	}
 
-	printf("loader: mbc.type=%s, mbc.romsize=%d, mbc.ramsize=%d\n", mbcName, mbc.romsize, mbc.ramsize);
-
 	rlen = 16384 * mbc.romsize;
+	int sram_length = 8192 * mbc.ramsize;
+	printf("loader: mbc.type=%s, mbc.romsize=%d (%dK), mbc.ramsize=%d (%dK)\n", mbcName, mbc.romsize, rlen / 1024, mbc.ramsize, sram_length / 1024);
+
+	// ROM
 	rom.bank[0] = data;
 	rom.length = rlen;
-	ram.sbank = malloc(8192 * mbc.ramsize);
-	ram.sram_dirty = 1;
 
+	// SRAM
+	ram.sram_dirty = 1;
+	ram.sbank = malloc(sram_length);
+	if (!ram.sbank)
+	{
+		// not enough free RAM,
+		// check if PSRAM has free space
+		if (rlen <= (0x100000 * 3) &&
+			sram_length <= 0x100000)
+		{
+			ram.sbank = data + (0x100000 * 3);
+			printf("SRAM using PSRAM.\n");
+		}
+		else
+		{
+			printf("No free spece for SRAM.\n");
+			abort();
+		}
+	}
+
+	
 	initmem(ram.sbank, 8192 * mbc.ramsize);
 	initmem(ram.ibank, 4096 * 8);
 
