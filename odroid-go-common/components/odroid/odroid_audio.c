@@ -140,15 +140,44 @@ void odroid_audio_submit(short* stereoAudioBuffer, int frameCount)
     // Convert for built in DAC
     for (short i = 0; i < currentAudioSampleCount; i += 2)
     {
+        // Down mix stero to mono
         int32_t sample = stereoAudioBuffer[i];
         sample += stereoAudioBuffer[i + 1];
         sample >>= 1;
 
-        sample *= Volume;
+        // Normalize
+        const float sn = (float)sample / 0x8000;
 
+        // Scale
+        const int magnitude = 127 + 127;
+        const float range = magnitude  * sn * Volume;
 
-        int32_t dac0 = (sample + 0x8000);
-        const int32_t dac1 = volumeLevel ? 0x8000 : 0x0000;
+        // Convert to differential output
+        int32_t dac0;
+        int32_t dac1;
+
+        if (range > 127)
+        {
+            dac1 = (range - 127);
+            dac0 = 127;
+        }
+        else if (range < -127)
+        {
+            dac1  = (range + 127);
+            dac0 = -127;
+        }
+        else
+        {
+            dac1 = 0;
+            dac0 = range;
+        }
+
+        dac0 += 0x80;
+        dac1 = 0x80 - dac1;
+
+        dac0 <<= 8;
+        dac1 <<= 8;
+
         stereoAudioBuffer[i] = (int16_t)dac1;
         stereoAudioBuffer[i + 1] = (int16_t)dac0;
     }
