@@ -1,5 +1,6 @@
 #pragma once
 
+#include <math.h>
 
 #define ODROID_VOLUME_LEVEL_COUNT (4)
 

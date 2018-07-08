@@ -14,13 +14,53 @@
 
 static float Volume = 1.0f;
 static odroid_volume_level volumeLevel = ODROID_VOLUME_LEVEL3;
-static int volumeLevels[] = {0, 150, 500, 1000};
+
+#if BUILTIN_DAC_ENABLED
+//Due to 8bit DAC we are restricted on floor volume values.
+static int volumeFloor = 150;
+static int volumeCeiling = 1000;
+#else
+//Assume greater fidelity
+static int volumeFloor = 50;
+static int volumeCeiling = 1000;
+#endif
+
+static int volumeLevels[ODROID_VOLUME_LEVEL_COUNT];
 static int audio_sample_rate;
 
 
 odroid_volume_level odroid_audio_volume_get()
 {
     return volumeLevel;
+}
+
+void odroid_get_volume_levels (int level_count)
+{
+    //Hearing isn't linear so stepping uses the formula volumeLevels[i]=1000x^3
+    float x_values[level_count];
+    x_values[0] = 0; //mute
+
+    for(int i = 1; i < level_count; i++)
+    {
+        //find x
+        float x, cuberoot_x;
+        x = ((float)volumeFloor / (float)volumeCeiling);
+        cuberoot_x = cbrtf(x);
+        x = cuberoot_x;
+
+        if (i > 1)
+        {
+            x += (float)( ( (1.00 - x_values[1]) / (level_count - 2) ) * (i - 1));
+        }
+
+        x_values[i] = x;
+    }
+
+    //Populate volumeLevels[]
+    for(int i = 0; i < level_count; i++)
+    {
+        volumeLevels[i] = (int)(1000.0 * x_values[i] * x_values[i] * x_values[i]);
+    }
 }
 
 void odroid_audio_volume_set(odroid_volume_level value)
@@ -97,7 +137,7 @@ void odroid_audio_init(int sample_rate)
     i2s_set_pin(I2S_NUM, &pin_config);
 
 #endif
-
+    odroid_get_volume_levels(ODROID_VOLUME_LEVEL_COUNT);
     odroid_volume_level level = odroid_settings_Volume_get();
     odroid_audio_volume_set(level);
 }
