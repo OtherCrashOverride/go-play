@@ -1,7 +1,7 @@
 #pragma once
 
 
-#define ODROID_VOLUME_LEVEL_COUNT (4)
+#define ODROID_VOLUME_LEVEL_COUNT (5)
 
 typedef enum
 {
@@ -9,6 +9,7 @@ typedef enum
     ODROID_VOLUME_LEVEL1 = 1,
     ODROID_VOLUME_LEVEL2 = 2,
     ODROID_VOLUME_LEVEL3 = 3,
+    ODROID_VOLUME_LEVEL4 = 4,
 
     _ODROID_VOLUME_FILLER = 0xffffffff
 } odroid_volume_level;
