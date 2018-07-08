@@ -6,8 +6,8 @@
 struct vissprite
 {
 	short pat;
-	byte x;
-	byte v;
+	short x;
+	short v;
 	byte pal;
 	byte pri;
 	byte pad[2]; //6
