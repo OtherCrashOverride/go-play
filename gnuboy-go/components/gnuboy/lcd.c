@@ -50,9 +50,17 @@ static int sprdebug = 0;
 
 // BGR
 #if 0
-static int dmg_pal[4] = { 0xffffff, 0x808080, 0x404040, 0x000000 };
+// Testing/Debug palette
+static int dmg_pal[4][4] = {{0xffffff, 0x808080, 0x404040, 0x000000},
+							{0xff0000, 0x800000, 0x400000, 0x000000},
+							{0x00ff00, 0x008000, 0x004000, 0x000000},
+							{0x0000ff, 0x000080, 0x000040, 0x000000} };
 #else
-static int dmg_pal[4] = { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 };
+#define GB_DEFAULT_PALETTE { 0xd5f3ef, 0x7ab6a3, 0x3b6137, 0x161c04 }
+static int dmg_pal[4][4] = {GB_DEFAULT_PALETTE,
+	 						GB_DEFAULT_PALETTE,
+							GB_DEFAULT_PALETTE,
+							GB_DEFAULT_PALETTE };
 #endif
 
 static byte *vdest;
@@ -730,7 +738,7 @@ inline void pal_write(int i, byte b)
 void IRAM_ATTR pal_write_dmg(int i, int mapnum, byte d)
 {
 	int j;
-	int * const cmap = dmg_pal;
+	int * const cmap = dmg_pal[mapnum & 0x3];
 	int c;
 	int r, g, b;
 
@@ -775,7 +783,7 @@ void pal_dirty()
 		pal_write_dmg(64, 2, R_OBP0);
 		pal_write_dmg(72, 3, R_OBP1);
 	}
-	else
+	//else
 	{
 		for (i = 0; i < 64; i++)
 		{

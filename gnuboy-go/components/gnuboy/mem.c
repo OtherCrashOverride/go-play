@@ -215,18 +215,18 @@ void IRAM_ATTR ioreg_write(byte r, byte b)
 		REG(r) = b;
 		break;
 	case RI_BGP:
-		if (R_BGP == b) break;
+		//if (R_BGP == b) break;
 		pal_write_dmg(0, 0, b);
 		pal_write_dmg(8, 1, b);
 		R_BGP = b;
 		break;
 	case RI_OBP0:
-		if (R_OBP0 == b) break;
+		//if (R_OBP0 == b) break;
 		pal_write_dmg(64, 2, b);
 		R_OBP0 = b;
 		break;
 	case RI_OBP1:
-		if (R_OBP1 == b) break;
+		//if (R_OBP1 == b) break;
 		pal_write_dmg(72, 3, b);
 		R_OBP1 = b;
 		break;
