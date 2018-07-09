@@ -297,7 +297,7 @@ int32_t odroid_settings_DataSlot_get()
 	err = nvs_get_i32(my_handle, NvsKey_DataSlot, &result);
 	if (err == ESP_OK)
     {
-        printf("odroid_settings_AppSlot_get: value=%d\n", result);
+        printf("odroid_settings_DataSlot_get: value=%d\n", result);
 	}
 
 
@@ -335,7 +335,7 @@ int32_t odroid_settings_Backlight_get()
     err = nvs_get_i32(my_handle, NvsKey_Backlight, &result);
     if (err == ESP_OK)
     {
-        printf("odroid_settings_Volume_get: value=%d\n", result);
+        printf("odroid_settings_Backlight_get: value=%d\n", result);
     }
 
     // Close
