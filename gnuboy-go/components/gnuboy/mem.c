@@ -476,6 +476,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 		case 0x4:
 		case 0x5:
 			mbc.rambank = b & 0x0f;
+			//printf("MBC5: Mapped rambank=%d\n", mbc.rambank);
 			break;
 		default:
 			printf("MBC_MBC5: invalid write to 0x%x (0x%x)\n", a, b);
@@ -561,8 +562,22 @@ void IRAM_ATTR mem_write(int a, byte b)
 			rtc_write(b);
 			break;
 		}
+
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
 		ram.sbank[mbc.rambank][a & 0x1FFF] = b;
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+		
 		ram.sram_dirty = 1;
+		//printf("mem_write: bank=%d, sram %p=0x%d\n", mbc.rambank, (void*)(a & 0x1fff), b);
+		//printf("mem_write: check - write=0x%x, read=0x%x\n", b, ram.sbank[mbc.rambank][a & 0x1FFF]);
 		break;
 	case 0xC:
 		if ((a & 0xF000) == 0xC000)
@@ -636,6 +651,13 @@ byte IRAM_ATTR mem_read(int a)
 			return 0xFF;
 		if (rtc.sel&8)
 			return rtc.regs[rtc.sel&7];
+
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+		//printf("mem_read: bank=%d, sram %p=0x%d\n", mbc.rambank, (void*)(a & 0x1fff), ram.sbank[mbc.rambank][a & 0x1FFF]);
 		return ram.sbank[mbc.rambank][a & 0x1FFF];
 	case 0xC:
 		if ((a & 0xF000) == 0xC000)

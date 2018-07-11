@@ -205,6 +205,10 @@ void loadstate(FILE *f)
 	if (wavofs) memcpy(snd.wave, buf+wavofs, sizeof snd.wave);
 	else memcpy(snd.wave, ram.hi+0x30, 16); /* patch data from older files */
 
+	iramblock = 1;
+	vramblock = 1+irl;
+	sramblock = 1+irl+vrl;
+
 	fseek(f, iramblock<<12, SEEK_SET);
 	fread(ram.ibank, 4096, irl, f);
 
@@ -212,7 +216,24 @@ void loadstate(FILE *f)
 	fread(lcd.vbank, 4096, vrl, f);
 
 	fseek(f, sramblock<<12, SEEK_SET);
-	fread(ram.sbank, 4096, srl, f);
+
+
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("memw");
+	size_t count = fread(ram.sbank, 4096, srl, f);
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("nop");
+	__asm__("memw");
+
+	printf("loadstate: read sram addr=%p, size=0x%x, count=%d\n", (void*)ram.sbank, 4096 * srl, count);
+
+	//byte* ptr = (byte*)(0x3f800000 + 0x300000 + (0xbe7a & 0x1fff));
+	//printf("loadstate: watch = 0x%x, 0x%x, 0x%x, 0x%x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3));
 
 	free(buf);
 }
@@ -275,7 +296,30 @@ void savestate(FILE *f)
 	fwrite(lcd.vbank, 4096, vrl, f);
 
 	fseek(f, sramblock<<12, SEEK_SET);
-	fwrite(ram.sbank, 4096, srl, f);
+
+	//byte* ptr = (byte*)(0x3f800000 + 0x300000 + (0xbe7a & 0x1fff));
+	//printf("savesate: watch = 0x%x, 0x%x, 0x%x, 0x%x\n", *ptr, *(ptr+1), *(ptr+2), *(ptr+3));
+
+	byte* tmp = ram.sbank;
+	for (int j = 0; j < srl; ++j)
+	{
+		memcpy(buf, (void*)tmp, 4096);
+
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+		size_t count = fwrite(buf, 4096, 1, f);
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+
+		printf("savesate: wrote sram addr=%p, size=0x%x, count=%d\n", (void*)tmp, 4096, count);
+		tmp += 4096;
+	}
 
 	free(buf);
 }
