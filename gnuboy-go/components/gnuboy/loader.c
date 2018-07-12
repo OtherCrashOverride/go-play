@@ -29,6 +29,7 @@
 
 #include "../odroid/odroid_settings.h"
 #include "../odroid/odroid_sdcard.h"
+#include "../odroid/odroid_display.h"
 
 
 void* FlashAddress = 0;
@@ -228,14 +229,18 @@ int rom_load()
 
 		// copy from SD card
 		esp_err_t r = odroid_sdcard_open("/sd");
-		if (r != ESP_OK) abort();
-
+		if (r != ESP_OK)
+                {
+                        odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+                        abort();
+                }
 
 		// load the first 16k
 		RomFile = fopen(romPath, "rb");
 		if (RomFile == NULL)
 		{
 			printf("loader: fopen failed.\n");
+                        odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 			abort();
 		}
 
@@ -257,6 +262,7 @@ int rom_load()
 		size_t count = fread((uint8_t*)data, 1, 0x4000, RomFile);
 		if (count < 0x4000)
 		{
+                        odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 			printf("loader: fread failed.\n");
 			abort();
 		}
