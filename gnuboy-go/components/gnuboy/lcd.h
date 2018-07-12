@@ -10,7 +10,7 @@ struct vissprite
 	short v;
 	byte pal;
 	byte pri;
-	byte pad[2]; //6
+	//byte pad[2]; //6
 };
 
 struct scan
