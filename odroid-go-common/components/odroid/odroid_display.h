@@ -2,6 +2,11 @@
 
 #include <stdint.h>
 
+enum ODROID_SD_ERR {
+    ODROID_SD_ERR_BADFILE = 0x01,
+    ODROID_SD_ERR_NOCARD = 0x02
+};
+
 void ili9341_write_frame_gb(uint16_t* buffer, int scale);
 void ili9341_init();
 void ili9341_poweroff();
@@ -25,3 +30,4 @@ void odroid_display_show_splash();
 void odroid_display_drain_spi();
 void odroid_display_lock_gb_display();
 void odroid_display_unlock_gb_display();
+void odroid_display_show_sderr(int errNum);

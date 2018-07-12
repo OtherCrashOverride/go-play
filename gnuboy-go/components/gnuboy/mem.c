@@ -49,6 +49,7 @@ static inline byte* GetRomPtr(short bank)
 			if (fseek(RomFile, OFFSET, SEEK_SET))
 			{
 				printf("GetRomPtr: fseek failed. OFFSET=%d\n", OFFSET);
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				abort();
 			}
 
@@ -69,6 +70,7 @@ static inline byte* GetRomPtr(short bank)
 			size_t count = fread((uint8_t*)PSRAM + OFFSET, 1, BANK_SIZE, RomFile);
 			if (count < BANK_SIZE)
 			{
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				printf("GetRomPtr: fread failed. bank=%d, count=%d\n", bank, count);
 				abort();
 			}
