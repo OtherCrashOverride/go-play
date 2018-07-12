@@ -550,7 +550,7 @@ static void IRAM_ATTR spr_enum()
 		VS[l].x = 160;
 	}
 
-#if 0
+#if 1
 	memcpy(VS, ts, sizeof VS);
 #else
 	int* vsPtr = (int*)VS;
@@ -576,7 +576,7 @@ static void IRAM_ATTR spr_scan()
 
 	if (!ns) return;
 
-#if 0
+#if 1
 	memcpy(bgdup, BUF, 256);
 #else
 	for (i = 0; i < 64; ++i)
