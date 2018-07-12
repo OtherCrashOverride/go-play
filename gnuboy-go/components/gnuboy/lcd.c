@@ -550,7 +550,7 @@ static void IRAM_ATTR spr_enum()
 		VS[l].x = 160;
 	}
 
-#if 0
+#if 1
 	memcpy(VS, ts, sizeof VS);
 #else
 	int* vsPtr = (int*)VS;
@@ -576,7 +576,7 @@ static void IRAM_ATTR spr_scan()
 
 	if (!ns) return;
 
-#if 0
+#if 1
 	memcpy(bgdup, BUF, 256);
 #else
 	for (i = 0; i < 64; ++i)
@@ -757,7 +757,7 @@ void IRAM_ATTR pal_write_dmg(int i, int mapnum, byte d)
 		pal_write(i+j+1, c >> 8);
 	}
 
-	printf("pal_write_dmg: i=%d, d=0x%x\n", i , d);
+	//printf("pal_write_dmg: i=%d, d=0x%x\n", i , d);
 }
 
 inline void vram_write(int a, byte b)

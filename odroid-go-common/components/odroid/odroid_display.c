@@ -1,4 +1,6 @@
 #include "odroid_display.h"
+#include "image_sd_card_alert.h"
+#include "image_sd_card_unknown.h"
 
 #include "image_splash.h"
 
@@ -1300,9 +1302,30 @@ void odroid_display_drain_spi()
         spi_transaction_t* trans_desc;
         err = spi_device_get_trans_result(spi, &trans_desc, 0);
 
-        //printf("odroid_display_show_splash: removed pending transfer.\n");
+        //printf("odroid_display_drain_spi: removed pending transfer.\n");
     }
 }
+
+void odroid_display_show_sderr(int errNum)
+{
+    switch(errNum)
+    {
+        case ODROID_SD_ERR_BADFILE:
+            ili9341_write_frame_rectangleLE(0, 0, image_sd_card_unknown.width, image_sd_card_unknown.height, image_sd_card_unknown.pixel_data); // Bad File image
+            break;
+
+        case ODROID_SD_ERR_NOCARD:
+            ili9341_write_frame_rectangleLE(0, 0, image_sd_card_alert.width, image_sd_card_alert.height, image_sd_card_alert.pixel_data); // No Card image
+            break;
+
+        default:
+            abort();
+    }
+
+    // Drain SPI queue
+    odroid_display_drain_spi();
+}
+
 
 SemaphoreHandle_t gb_mutex = NULL;
 

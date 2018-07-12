@@ -15,6 +15,7 @@
 #include "esp_attr.h"
 
 #include "../odroid/odroid_display.h"
+#include "../odroid/odroid_audio.h"
 
 
 struct mbc mbc;
@@ -49,6 +50,10 @@ static inline byte* GetRomPtr(short bank)
 			if (fseek(RomFile, OFFSET, SEEK_SET))
 			{
 				printf("GetRomPtr: fseek failed. OFFSET=%d\n", OFFSET);
+
+				odroid_audio_terminate();
+
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				abort();
 			}
 
@@ -70,6 +75,10 @@ static inline byte* GetRomPtr(short bank)
 			if (count < BANK_SIZE)
 			{
 				printf("GetRomPtr: fread failed. bank=%d, count=%d\n", bank, count);
+
+				odroid_audio_terminate();
+
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);				
 				abort();
 			}
 	#endif
@@ -215,18 +224,18 @@ void IRAM_ATTR ioreg_write(byte r, byte b)
 		REG(r) = b;
 		break;
 	case RI_BGP:
-		//if (R_BGP == b) break;
+		if (R_BGP == b) break;
 		pal_write_dmg(0, 0, b);
 		pal_write_dmg(8, 1, b);
 		R_BGP = b;
 		break;
 	case RI_OBP0:
-		//if (R_OBP0 == b) break;
+		if (R_OBP0 == b) break;
 		pal_write_dmg(64, 2, b);
 		R_OBP0 = b;
 		break;
 	case RI_OBP1:
-		//if (R_OBP1 == b) break;
+		if (R_OBP1 == b) break;
 		pal_write_dmg(72, 3, b);
 		R_OBP1 = b;
 		break;
@@ -476,6 +485,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 		case 0x4:
 		case 0x5:
 			mbc.rambank = b & 0x0f;
+			//printf("MBC5: Mapped rambank=%d\n", mbc.rambank);
 			break;
 		default:
 			printf("MBC_MBC5: invalid write to 0x%x (0x%x)\n", a, b);
@@ -561,8 +571,22 @@ void IRAM_ATTR mem_write(int a, byte b)
 			rtc_write(b);
 			break;
 		}
+
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
 		ram.sbank[mbc.rambank][a & 0x1FFF] = b;
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+
 		ram.sram_dirty = 1;
+		//printf("mem_write: bank=%d, sram %p=0x%d\n", mbc.rambank, (void*)(a & 0x1fff), b);
+		//printf("mem_write: check - write=0x%x, read=0x%x\n", b, ram.sbank[mbc.rambank][a & 0x1FFF]);
 		break;
 	case 0xC:
 		if ((a & 0xF000) == 0xC000)
@@ -636,6 +660,13 @@ byte IRAM_ATTR mem_read(int a)
 			return 0xFF;
 		if (rtc.sel&8)
 			return rtc.regs[rtc.sel&7];
+
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("nop");
+		__asm__("memw");
+		//printf("mem_read: bank=%d, sram %p=0x%d\n", mbc.rambank, (void*)(a & 0x1fff), ram.sbank[mbc.rambank][a & 0x1FFF]);
 		return ram.sbank[mbc.rambank][a & 0x1FFF];
 	case 0xC:
 		if ((a & 0xF000) == 0xC000)

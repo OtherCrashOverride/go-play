@@ -21,6 +21,7 @@
 #include "../components/odroid/odroid_settings.h"
 #include "../components/odroid/odroid_system.h"
 #include "../components/odroid/odroid_sdcard.h"
+#include "../components/odroid/odroid_display.h"
 
 static char* ROM_DATA = (char*)0x3f800000;;
 
@@ -50,17 +51,17 @@ int app_main(void)
 	char* fileName;
 
 	char* romName = odroid_settings_RomFilePath_get();
-    if (romName)
-    {
-        fileName = odroid_util_GetFileName(romName);
-        if (!fileName) abort();
+        if (romName)
+        {
+            fileName = odroid_util_GetFileName(romName);
+            if (!fileName) abort();
 
-		free(romName);
-	}
-	else
-	{
-		fileName = "nesemu-show3.nes";
-	}
+            free(romName);
+        }
+        else
+        {
+            fileName = "nesemu-show3.nes";
+        }
 
 
 	int startHeap = esp_get_free_heap_size();
@@ -106,18 +107,7 @@ int app_main(void)
 
 
 
-	// Disable LCD CD to prevent garbage
-    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
-
-    gpio_config_t io_conf = { 0 };
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-
-    gpio_config(&io_conf);
-    gpio_set_level(LCD_PIN_NUM_CS, 1);
+	ili9341_init();
 
 
 	// Load ROM
@@ -149,14 +139,26 @@ int app_main(void)
 
 		// copy from SD card
 		esp_err_t r = odroid_sdcard_open("/sd");
-		if (r != ESP_OK) abort();
+		if (r != ESP_OK)
+                {
+                    odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+                    abort();
+                }
 
 		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, ROM_DATA);
 		printf("app_main: fileSize=%d\n", fileSize);
-		if (fileSize == 0) abort();
+		if (fileSize == 0)
+                {
+                    odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+                    abort();
+                }
 
 		r = odroid_sdcard_close();
-		if (r != ESP_OK) abort();
+		if (r != ESP_OK)
+                {
+                    odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+                    abort();
+                }
 
 		free(romPath);
 	}

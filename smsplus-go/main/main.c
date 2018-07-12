@@ -369,6 +369,9 @@ void app_main(void)
     }
 
 
+    ili9341_init();
+
+
     void* const romAddress = (void*)0x3f800000;
     size_t cartSize = 1024 * 1024;
 
@@ -418,7 +421,11 @@ void app_main(void)
 
         // copy from SD card
         esp_err_t r = odroid_sdcard_open("/sd");
-        if (r != ESP_OK) abort();
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
         char* path = cartName; //(char*)malloc(1024);
         // if (!path) abort();
@@ -428,10 +435,18 @@ void app_main(void)
 
         cartSize = odroid_sdcard_copy_file_to_memory(path, romAddress);
         //free(path);
-        if (cartSize == 0) abort();
+        if (cartSize == 0)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+            abort();
+        }
 
         r = odroid_sdcard_close();
-        if (r != ESP_OK) abort();
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
     }
 
     printf("app_main: cartName='%s'\n", cartName);
@@ -458,7 +473,6 @@ void app_main(void)
     printf("app_main: framebuffer[1]=%p\n", framebuffer[1]);
 
 
-    ili9341_init();
     ili9341_write_frame_sms(NULL, NULL, false, false);
 
     odroid_audio_init(AUDIO_SAMPLE_RATE);
