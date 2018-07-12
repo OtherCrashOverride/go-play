@@ -15,6 +15,7 @@
 #include "esp_attr.h"
 
 #include "../odroid/odroid_display.h"
+#include "../odroid/odroid_audio.h"
 
 
 struct mbc mbc;
@@ -49,6 +50,9 @@ static inline byte* GetRomPtr(short bank)
 			if (fseek(RomFile, OFFSET, SEEK_SET))
 			{
 				printf("GetRomPtr: fseek failed. OFFSET=%d\n", OFFSET);
+
+				odroid_audio_terminate();
+
 				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				abort();
 			}
@@ -70,8 +74,11 @@ static inline byte* GetRomPtr(short bank)
 			size_t count = fread((uint8_t*)PSRAM + OFFSET, 1, BANK_SIZE, RomFile);
 			if (count < BANK_SIZE)
 			{
-				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				printf("GetRomPtr: fread failed. bank=%d, count=%d\n", bank, count);
+
+				odroid_audio_terminate();
+
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);				
 				abort();
 			}
 	#endif
@@ -576,7 +583,7 @@ void IRAM_ATTR mem_write(int a, byte b)
 		__asm__("nop");
 		__asm__("nop");
 		__asm__("memw");
-		
+
 		ram.sram_dirty = 1;
 		//printf("mem_write: bank=%d, sram %p=0x%d\n", mbc.rambank, (void*)(a & 0x1fff), b);
 		//printf("mem_write: check - write=0x%x, read=0x%x\n", b, ram.sbank[mbc.rambank][a & 0x1FFF]);
