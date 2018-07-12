@@ -369,6 +369,9 @@ void app_main(void)
     }
 
 
+    ili9341_init();
+
+
     void* const romAddress = (void*)0x3f800000;
     size_t cartSize = 1024 * 1024;
 
@@ -470,7 +473,6 @@ void app_main(void)
     printf("app_main: framebuffer[1]=%p\n", framebuffer[1]);
 
 
-    ili9341_init();
     ili9341_write_frame_sms(NULL, NULL, false, false);
 
     odroid_audio_init(AUDIO_SAMPLE_RATE);
