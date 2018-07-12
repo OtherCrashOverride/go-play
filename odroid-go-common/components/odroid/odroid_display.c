@@ -1308,30 +1308,22 @@ void odroid_display_drain_spi()
 
 void odroid_display_show_sderr(int errNum)
 {
-    printf("odroid_display_show_sderr: error %d\n", errNum);
-
-    //printf("odroid_display_show_sderr: clear\n");
-    ili9341_clear(0xFFD0); // Clear the screen
-
-    //printf("odroid_display_show_sderr: image\n");
     switch(errNum)
     {
-	case ODROID_SD_ERR_BADFILE:
+        case ODROID_SD_ERR_BADFILE:
             ili9341_write_frame_rectangleLE(0, 0, image_sd_card_unknown.width, image_sd_card_unknown.height, image_sd_card_unknown.pixel_data); // Bad File image
             break;
-	case ODROID_SD_ERR_NOCARD:
+
+        case ODROID_SD_ERR_NOCARD:
             ili9341_write_frame_rectangleLE(0, 0, image_sd_card_alert.width, image_sd_card_alert.height, image_sd_card_alert.pixel_data); // No Card image
             break;
+
         default:
-	    printf("odroid_display_show_sderr: abort\n");
             abort();
     }
 
-    //printf("odroid_display_show_sderr: drain\n");
     // Drain SPI queue
     odroid_display_drain_spi();
-
-    printf("odroid_display_show_sderr: end\n");
 }
 
 

@@ -107,18 +107,7 @@ int app_main(void)
 
 
 
-	// Disable LCD CD to prevent garbage
-    const gpio_num_t LCD_PIN_NUM_CS = GPIO_NUM_5;
-
-    gpio_config_t io_conf = { 0 };
-    io_conf.intr_type = GPIO_PIN_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_OUTPUT;
-    io_conf.pin_bit_mask = (1ULL << LCD_PIN_NUM_CS);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 0;
-
-    gpio_config(&io_conf);
-    gpio_set_level(LCD_PIN_NUM_CS, 1);
+	ili9341_init();
 
 
 	// Load ROM

@@ -593,7 +593,6 @@ int osd_init()
     ignoreMenuButton = previousJoystickState.values[ODROID_INPUT_MENU];
 
 
-	ili9341_init();
 	ili9341_write_frame_nes(NULL, NULL, true);
 
 
