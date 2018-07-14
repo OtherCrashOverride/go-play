@@ -37,6 +37,7 @@
 #include "../components/odroid/odroid_display.h"
 #include "../components/odroid/odroid_audio.h"
 #include "../components/odroid/odroid_system.h"
+#include "../components/odroid/odroid_sdcard.h"
 
 
 extern int debug_trace;
@@ -66,6 +67,7 @@ const char* StateFileName = "/storage/gnuboy.sav";
 
 #define AUDIO_SAMPLE_RATE (32000)
 
+const char* SD_BASE_PATH = "/sd";
 
 // --- MAIN
 QueueHandle_t vidQueue;
@@ -239,49 +241,36 @@ void audioTask(void* arg)
 }
 
 
-const char* StoragePath = "/storage";
-
 static void SaveState()
 {
     // Save sram
     odroid_input_battery_monitor_enabled_set(0);
     odroid_system_led_set(1);
 
-    char* romName = odroid_settings_RomFilePath_get();
-    if (romName)
+    char* romPath = odroid_settings_RomFilePath_get();
+    if (romPath)
     {
-        char* fileName = odroid_util_GetFileName(romName);
+        char* fileName = odroid_util_GetFileName(romPath);
         if (!fileName) abort();
 
-        int prefixLength = strlen(StoragePath);
-
-        char* pathName = malloc(1024);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        strcpy(pathName, StoragePath);
-        strcat(pathName, "/");
-        strcat(pathName, fileName);
-        strcat(pathName, ".sav");
-
-
-        printf("SaveState: pathName='%s'\n", pathName);
-
         FILE* f = fopen(pathName, "w");
-
         if (f == NULL)
         {
-            printf("SaveState: fopen save failed\n");
+            printf("%s: fopen save failed\n", __func__);
+            abort();
         }
-        else
-        {
-            savestate(f);
-            fclose(f);
 
-            printf("SaveState: savestate OK.\n");
-        }
+        savestate(f);
+        fclose(f);
+
+        printf("%s: savestate OK.\n", __func__);
 
         free(pathName);
         free(fileName);
+        free(romPath);
     }
     else
     {
@@ -312,21 +301,10 @@ static void LoadState(const char* cartName)
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
-        int prefixLength = strlen(StoragePath);
-
-        char* pathName = malloc(1024);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        strcpy(pathName, StoragePath);
-        strcat(pathName, "/");
-        strcat(pathName, fileName);
-        strcat(pathName, ".sav");
-
-
-        printf("LoadState: pathName='%s'\n", pathName);
-
         FILE* f = fopen(pathName, "r");
-
         if (f == NULL)
         {
             printf("LoadState: fopen load failed\n");
@@ -346,6 +324,7 @@ static void LoadState(const char* cartName)
 
         free(pathName);
         free(fileName);
+        free(romName);
     }
     else
     {
@@ -437,42 +416,7 @@ static void DoMenuHome()
     esp_restart();
 }
 
-void SpiffsInit()
-{
-    // SPIFFS
-    printf("Initializing SPIFFS\n");
 
-    esp_vfs_spiffs_conf_t conf = {
-      .base_path = "/storage",
-      .partition_label = NULL,
-      .max_files = 1,
-      .format_if_mount_failed = true
-    };
-
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            printf("Failed to mount or format filesystem.\n");
-            abort();
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            printf("Failed to find SPIFFS partition.\n");
-            abort();
-        } else {
-            printf("Failed to initialize SPIFFS (%d).\n", ret);
-            abort();
-        }
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(NULL, &total, &used);
-    if (ret != ESP_OK) {
-        printf("Failed to get SPIFFS partition information. \n");
-        abort();
-    } else {
-        printf("Partition size: total: %d, used: %d\n", total, used);
-    }
-}
 
 void app_main(void)
 {
@@ -629,9 +573,7 @@ void app_main(void)
 
 
     // Load state
-    SpiffsInit();
     LoadState(rom.name);
-
 
 
     uint startTime;

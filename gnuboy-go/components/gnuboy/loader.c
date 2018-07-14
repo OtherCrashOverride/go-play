@@ -117,6 +117,8 @@ static int forcedmg=0, gbamode=0;
 
 static int memfill = 0, memrand = -1;
 
+extern const char* SD_BASE_PATH;
+
 
 static void initmem(void *mem, int size)
 {
@@ -228,12 +230,12 @@ int rom_load()
 		printf("loader: Reading from sdcard.\n");
 
 		// copy from SD card
-		esp_err_t r = odroid_sdcard_open("/sd");
+		esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
 		if (r != ESP_OK)
-                {
-                        odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-                        abort();
-                }
+		{
+			odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+			abort();
+		}
 
 		// load the first 16k
 		RomFile = fopen(romPath, "rb");
@@ -362,7 +364,7 @@ int rom_load()
 		}
 	}
 
-	
+
 	initmem(ram.sbank, 8192 * mbc.ramsize);
 	initmem(ram.ibank, 4096 * 8);
 
