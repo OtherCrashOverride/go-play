@@ -277,6 +277,7 @@ static void videoTask(void *arg) {
 	}
 
 
+    odroid_display_lock_nes_display();
 
     send_continue_wait();
 
@@ -290,6 +291,9 @@ static void videoTask(void *arg) {
     send_continue_line(icon + 24 * 48, 48, 24);
 
     send_continue_wait();
+
+    odroid_display_unlock_nes_display();
+    //odroid_display_drain_spi();
 
     exitVideoTaskFlag = true;
 
@@ -444,6 +448,7 @@ static int ConvertJoystickInput()
              vTaskDelay(10);
         }
 
+        //odroid_display_drain_spi();
 
         SaveState();
 

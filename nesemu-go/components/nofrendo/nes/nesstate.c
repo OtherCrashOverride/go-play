@@ -34,8 +34,13 @@
 #include <libsnss.h>
 #include "nes6502.h"
 
+#include "../../odroid/odroid_sdcard.h"
+#include "../../odroid/odroid_settings.h"
+#include "../../odroid/odroid_display.h"
+
 extern nes_t* console_nes;
 extern nes6502_context cpu;
+const char* SD_BASE_PATH;
 
 #define  FIRST_STATE_SLOT  0
 #define  LAST_STATE_SLOT   9
@@ -532,47 +537,81 @@ _error:
    abort();
 }
 
-static const char* PathPrefix = "/storage/";
-
-char* CreateFileName(nes_t* state)
-{
-    int nameLength = strlen(state->rominfo->filename);
-    if (nameLength < 1) abort();
-
-    nameLength += strlen(PathPrefix);
-
-    char* fn = (char*)malloc(nameLength + 4 + 1);
-    if (!fn) abort();
-
-    strcpy(fn, PathPrefix);
-    strcat(fn, state->rominfo->filename);
-    strcat(fn, ".sav");
-
-    return fn;
-}
 
 void save_sram()
 {
-    nes_t *state = nes_getcontextptr();
+    odroid_display_lock_nes_display();
+    odroid_display_drain_spi();
 
-    char* fn = CreateFileName(state);
-    printf("save_sram: fn='%s'\n", fn);
+    char* romPath = odroid_settings_RomFilePath_get();
+    if (romPath)
+    {
+        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+		if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
-    state_save(fn);
+        char* fileName = odroid_util_GetFileName(romPath);
+        if (!fileName) abort();
 
-    free(fn);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
+        if (!pathName) abort();
+
+        state_save(pathName);
+
+        free(pathName);
+        free(fileName);
+        free(romPath);
+
+        r = odroid_sdcard_close();
+		if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
+    }
+
+    odroid_display_unlock_nes_display();
 }
 
 void load_sram()
 {
-    nes_t *state = nes_getcontextptr();
+    odroid_display_lock_nes_display();
+    odroid_display_drain_spi();
 
-    char* fn = CreateFileName(state);
-    printf("load_sram: fn='%s'\n", fn);
+    char* romName = odroid_settings_RomFilePath_get();
+    if (romName)
+    {
+        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+		if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
-    state_load(fn);
+        char* fileName = odroid_util_GetFileName(romName);
+        if (!fileName) abort();
 
-    free(fn);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
+        if (!pathName) abort();
+
+        state_load(pathName);
+
+        free(pathName);
+        free(fileName);
+        free(romName);
+
+        r = odroid_sdcard_close();
+		if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
+    }
+
+    odroid_display_unlock_nes_display();
 }
 
 /*

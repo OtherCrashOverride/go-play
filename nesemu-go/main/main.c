@@ -23,6 +23,8 @@
 #include "../components/odroid/odroid_sdcard.h"
 #include "../components/odroid/odroid_display.h"
 
+const char* SD_BASE_PATH = "/sd";
+
 static char* ROM_DATA = (char*)0x3f800000;;
 
 char *osd_getromdata()
@@ -51,60 +53,21 @@ int app_main(void)
 	char* fileName;
 
 	char* romName = odroid_settings_RomFilePath_get();
-        if (romName)
-        {
-            fileName = odroid_util_GetFileName(romName);
-            if (!fileName) abort();
+    if (romName)
+    {
+        fileName = odroid_util_GetFileName(romName);
+        if (!fileName) abort();
 
-            free(romName);
-        }
-        else
-        {
-            fileName = "nesemu-show3.nes";
-        }
+        free(romName);
+    }
+    else
+    {
+        fileName = "nesemu-show3.nes";
+    }
 
 
 	int startHeap = esp_get_free_heap_size();
 	printf("A HEAP:0x%x\n", startHeap);
-
-	printf("Initializing SPIFFS\n");
-
-    esp_vfs_spiffs_conf_t conf = {
-      .base_path = "/storage",
-      .partition_label = NULL,
-      .max_files = 1,
-      .format_if_mount_failed = true
-    };
-
-    // Use settings defined above to initialize and mount SPIFFS filesystem.
-    // Note: esp_vfs_spiffs_register is an all-in-one convenience function.
-    ret = esp_vfs_spiffs_register(&conf);
-
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            printf("Failed to mount or format filesystem.\n");
-            abort();
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            printf("Failed to find SPIFFS partition.\n");
-            abort();
-        } else {
-            printf("Failed to initialize SPIFFS (%d).\n", ret);
-            abort();
-        }
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(NULL, &total, &used);
-    if (ret != ESP_OK) {
-        printf("Failed to get SPIFFS partition information. \n");
-		abort();
-    } else {
-        printf("Partition size: total: %d, used: %d\n", total, used);
-    }
-
-	int stopHeap = esp_get_free_heap_size();
-	printf("B HEAP:0x%x size=0x%x(%d)\n", stopHeap, startHeap - stopHeap, startHeap - stopHeap);
-
 
 
 	ili9341_init();
@@ -138,27 +101,27 @@ int app_main(void)
 		printf("osd_getromdata: Reading from sdcard.\n");
 
 		// copy from SD card
-		esp_err_t r = odroid_sdcard_open("/sd");
+		esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
 		if (r != ESP_OK)
-                {
-                    odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-                    abort();
-                }
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
 		size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, ROM_DATA);
 		printf("app_main: fileSize=%d\n", fileSize);
 		if (fileSize == 0)
-                {
-                    odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
-                    abort();
-                }
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+            abort();
+        }
 
 		r = odroid_sdcard_close();
 		if (r != ESP_OK)
-                {
-                    odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-                    abort();
-                }
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
 		free(romPath);
 	}

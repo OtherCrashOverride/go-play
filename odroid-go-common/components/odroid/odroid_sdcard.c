@@ -96,6 +96,8 @@ esp_err_t odroid_sdcard_close()
         {
             printf("odroid_sdcard_close: esp_vfs_fat_sdmmc_unmount failed (%d)\n", ret);
     	}
+
+        isOpen = false;
     }
 
     return ret;
