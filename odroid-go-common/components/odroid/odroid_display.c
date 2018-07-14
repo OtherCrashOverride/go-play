@@ -721,6 +721,8 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 {
     short x, y;
 
+    odroid_display_lock_sms_display();
+
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     if (buffer == NULL)
@@ -1002,6 +1004,8 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
         send_continue_wait();
     }
+
+    odroid_display_unlock_sms_display();
 }
 
 //
@@ -1376,4 +1380,28 @@ void odroid_display_unlock_nes_display()
     if (!nes_mutex) abort();
 
     xSemaphoreGive(nes_mutex);
+}
+
+
+SemaphoreHandle_t sms_mutex = NULL;
+
+void odroid_display_lock_sms_display()
+{
+    if (!sms_mutex)
+    {
+        sms_mutex = xSemaphoreCreateMutex();
+        if (!sms_mutex) abort();
+    }
+
+    if (xSemaphoreTake(sms_mutex, 1000 / portTICK_RATE_MS) != pdTRUE)
+    {
+        abort();
+    }
+}
+
+void odroid_display_unlock_sms_display()
+{
+    if (!sms_mutex) abort();
+
+    xSemaphoreGive(sms_mutex);
 }

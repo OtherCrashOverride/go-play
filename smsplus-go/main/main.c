@@ -23,7 +23,7 @@
 
 #include <dirent.h>
 
-
+const char* SD_BASE_PATH = "/sd";
 
 #define AUDIO_SAMPLE_RATE (32000)
 
@@ -71,6 +71,7 @@ void videoTask(void *arg)
         xQueueReceive(vidQueue, &param, portMAX_DELAY);
     }
 
+    odroid_display_lock_sms_display();
 
     // Draw hourglass
     send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
@@ -82,6 +83,8 @@ void videoTask(void *arg)
     send_continue_line(icon + 24 * 48, 48, 24);
 
     send_continue_wait();
+
+    odroid_display_unlock_sms_display();
 
     videoTaskIsRunning = false;
     vTaskDelete(NULL);
@@ -118,19 +121,21 @@ static void SaveState()
     char* romName = odroid_settings_RomFilePath_get();
     if (romName)
     {
+        odroid_display_lock_sms_display();
+        odroid_display_drain_spi();
+
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
-        char* pathName = malloc(1024);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        strcpy(pathName, StoragePath);
-        strcat(pathName, "/");
-        strcat(pathName, fileName);
-        strcat(pathName, ".sav");
-
-
-        printf("SaveState: pathName='%s'\n", pathName);
+        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
         FILE* f = fopen(pathName, "w");
 
@@ -146,8 +151,18 @@ static void SaveState()
             printf("SaveState: system_save_state OK.\n");
         }
 
+        r = odroid_sdcard_close();
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
+
+        odroid_display_unlock_sms_display();
+
         free(pathName);
         free(fileName);
+        free(romName);
     }
     else
     {
@@ -174,22 +189,23 @@ static void LoadState(const char* cartName)
     char* romName = odroid_settings_RomFilePath_get();
     if (romName)
     {
+        odroid_display_lock_sms_display();
+        odroid_display_drain_spi();
+
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
-        char* pathName = malloc(1024);
+        char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        strcpy(pathName, StoragePath);
-        strcat(pathName, "/");
-        strcat(pathName, fileName);
-        strcat(pathName, ".sav");
-
-
-        printf("LoadState: pathName='%s'\n", pathName);
+        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
 
         FILE* f = fopen(pathName, "r");
-
         if (f == NULL)
         {
             printf("LoadState: fopen load failed\n");
@@ -199,11 +215,21 @@ static void LoadState(const char* cartName)
             system_load_state(f);
             fclose(f);
 
-            printf("LoadState: system_load_state OK.\n");
+            printf("LoadState: loadstate OK.\n");
         }
+
+        r = odroid_sdcard_close();
+        if (r != ESP_OK)
+        {
+            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+            abort();
+        }
+
+        odroid_display_unlock_sms_display();
 
         free(pathName);
         free(fileName);
+        free(romName);
     }
     else
     {
@@ -420,7 +446,7 @@ void app_main(void)
         printf("app_main: loading from sdcard.\n");
 
         // copy from SD card
-        esp_err_t r = odroid_sdcard_open("/sd");
+        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
         if (r != ESP_OK)
         {
             odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
@@ -508,40 +534,6 @@ void app_main(void)
 
 
     system_init2(AUDIO_SAMPLE_RATE);
-
-
-	printf("Initializing SPIFFS\n");
-
-    esp_vfs_spiffs_conf_t conf = {
-      .base_path = StoragePath,
-      .partition_label = NULL,
-      .max_files = 1,
-      .format_if_mount_failed = true
-    };
-
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            printf("Failed to mount or format filesystem.\n");
-            abort();
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            printf("Failed to find SPIFFS partition.\n");
-            abort();
-        } else {
-            printf("Failed to initialize SPIFFS (%d).\n", ret);
-            abort();
-        }
-    }
-
-    size_t total = 0, used = 0;
-    ret = esp_spiffs_info(NULL, &total, &used);
-    if (ret != ESP_OK) {
-        printf("Failed to get SPIFFS partition information. \n");
-		abort();
-    } else {
-        printf("Partition size: total: %d, used: %d\n", total, used);
-    }
 
 
     // Restore state
