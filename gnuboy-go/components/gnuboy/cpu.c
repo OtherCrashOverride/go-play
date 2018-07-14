@@ -355,6 +355,7 @@ int IRAM_ATTR cpu_idle(int max)
 {
 	int cnt, unit;
 
+
 	if (!(cpu.halt && IME)) return 0;
 	if (R_IF & R_IE)
 	{
@@ -640,7 +641,25 @@ next:
 
 
 	case 0xF8: /* LD HL,SP+imm */
+#if 0
 		b = FETCH; LDHLSP(b); break;
+#else
+		{
+			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+			signed char v = (signed char) FETCH;
+			int temp = (int)(SP) + (int)v;
+
+			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+
+			F &= ~(FZ | FN | FH | FC);
+
+			if (half_carry) F |= FH;
+			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
+
+			HL = temp & 0xffff;
+		}
+		break;
+#endif
 	case 0xF9: /* LD SP,HL */
 		SP = HL; break;
 	case 0xFA: /* LD A,(imm) */
@@ -739,6 +758,8 @@ next:
 		DAA
 #else
 		{
+			//http://forums.nesdev.com/viewtopic.php?t=9088
+
 			int a = A;
 			if (!(F & FN))
 			{
@@ -857,7 +878,25 @@ next:
 		PUSH(AF); break;
 
 	case 0xE8: /* ADD SP,imm */
+#if 0
 		b = FETCH; ADDSP(b); break;
+#else
+		{
+			// https://gammpei.github.io/blog/posts/2018-03-04/how-to-write-a-game-boy-emulator-part-8-blarggs-cpu-test-roms-1-3-4-5-7-8-9-10-11.html
+			signed char v = (signed char) FETCH;
+			int temp = (int)(SP) + (int)v;
+
+			byte half_carry = ((SP & 0xff) ^ v ^ temp) & 0x10;
+
+			F &= ~(FZ | FN | FH | FC);
+
+			if (half_carry) F |= FH;
+			if ((SP & 0xff) + (byte)v > 0xff) F |= FC;
+
+			SP = temp & 0xffff;
+		}
+		break;
+#endif
 
 	case 0xF3: /* DI */
 		DI; break;
