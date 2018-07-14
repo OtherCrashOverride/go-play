@@ -22,6 +22,8 @@ struct cpu cpu;
 
 
 #define ZFLAG(n) ( (n) ? 0 : FZ )
+#define HFLAG(n) ( (n) ? 0 : FH )
+#define CFLAG(n) ( (n) ? 0 : FC )
 
 
 #define PUSH(w) ( (SP -= 2), (writew(xSP, (w))) )
@@ -733,7 +735,36 @@ next:
 		RRA(A); break;
 
 	case 0x27: /* DAA */
-		DAA; break;
+#if 0
+		DAA
+#else
+		{
+			int a = A;
+			if (!(F & FN))
+			{
+				if ((F & FH) || ((a & 0x0f) > 9)) a += 0x06;
+
+				if ((F & FC) || (a > 0x9f)) a += 0x60;
+			}
+			else
+			{
+				if (F & FH)	a = (a - 6) & 0xff;
+
+				if (F & FC) a -= 0x60;
+			}
+
+			F &= ~(FH | FZ);
+
+			if (a & 0x100) F |= FC;
+
+			a &= 0xff;
+
+			if (!a) F |= FZ;
+
+			A = (byte)a;
+		}
+#endif
+		break;
 	case 0x2F: /* CPL */
 		CPL(A); break;
 
@@ -823,7 +854,7 @@ next:
 	case 0xF1: /* POP AF */
 		POP(AF); AF &= 0xfff0; break;
 	case 0xF5: /* PUSH AF */
-		AF &= 0xfff0; PUSH(AF); break;
+		PUSH(AF); break;
 
 	case 0xE8: /* ADD SP,imm */
 		b = FETCH; ADDSP(b); break;
