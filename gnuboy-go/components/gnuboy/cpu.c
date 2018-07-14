@@ -821,9 +821,9 @@ next:
 	case 0xE5: /* PUSH HL */
 		PUSH(HL); break;
 	case 0xF1: /* POP AF */
-		POP(AF); break;
+		POP(AF); AF &= 0xfff0; break;
 	case 0xF5: /* PUSH AF */
-		PUSH(AF); break;
+		AF &= 0xfff0; PUSH(AF); break;
 
 	case 0xE8: /* ADD SP,imm */
 		b = FETCH; ADDSP(b); break;
