@@ -159,7 +159,7 @@ void IRAM_ATTR mem_updatemap()
 		map[0xA] = map[0xB] = NULL;
 	//}
 
-#if 0
+#if 1
 	map[0xC] = ram.ibank[0] - 0xC000;
 	n = R_SVBK & 0x07;
 	map[0xD] = ram.ibank[n?n:1] - 0xD000;
@@ -322,13 +322,13 @@ void IRAM_ATTR ioreg_write(byte r, byte b)
 		REG(r) = b;
 		break;
 	case RI_HDMA2:
-		REG(r) = b & 0xF0;
+		REG(r) = b; //& 0xF0;
 		break;
 	case RI_HDMA3:
-		REG(r) = b & 0x1F;
+		REG(r) = b; //& 0x1F;
 		break;
 	case RI_HDMA4:
-		REG(r) = b & 0xF0;
+		REG(r) = b; //& 0xF0;
 		break;
 	case RI_HDMA5:
 		hw_hdma_cmd(b);
