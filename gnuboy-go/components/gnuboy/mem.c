@@ -78,18 +78,22 @@ static inline byte* GetRomPtr(short bank)
 
 				odroid_audio_terminate();
 
-				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);				
+				odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
 				abort();
 			}
 	#endif
 
 			BankCache[slot] |= bit;
 
+			//printf("%s: bank=%d, result=%p\n", __func__, bank, (void*)PSRAM + OFFSET);
+
 			odroid_display_unlock_gb_display();
 		}
 	}
 
 	byte* result = PSRAM + OFFSET;
+	//printf("%s: bank=%d, result=%p\n", __func__, bank, result);
+
 	return result;
 }
 
@@ -134,33 +138,41 @@ void IRAM_ATTR mem_updatemap()
 		map[0x4] = map[0x5] = map[0x6] = map[0x7] = NULL;
 	}
 
-	if (0 && (R_STAT & 0x03) == 0x03)
-	{
+	//if (0 && (R_STAT & 0x03) == 0x03)
+	//{
 		map[0x8] = NULL;
 		map[0x9] = NULL;
-	}
-	else
-	{
-		map[0x8] = lcd.vbank[R_VBK & 1] - 0x8000;
-		map[0x9] = lcd.vbank[R_VBK & 1] - 0x8000;
-	}
+	//}
+	//else
+	//{
+		// map[0x8] = lcd.vbank[R_VBK & 1] - 0x8000;
+		// map[0x9] = lcd.vbank[R_VBK & 1] - 0x8000;
+	//}
 
 	// if (mbc.enableram && !(rtc.sel&8))
 	// {
-	// 	map[0xA] = ram.sbank[mbc.rambank] - 0xA000;
-	// 	map[0xB] = ram.sbank[mbc.rambank] - 0xA000;
+	//  	map[0xA] = ram.sbank[mbc.rambank] - 0xA000;
+	//  	map[0xB] = ram.sbank[mbc.rambank] - 0xA000;
 	// }
-	// else
-	{
+	//  else
+	// {
 		map[0xA] = map[0xB] = NULL;
-	}
+	//}
 
+#if 0
 	map[0xC] = ram.ibank[0] - 0xC000;
 	n = R_SVBK & 0x07;
 	map[0xD] = ram.ibank[n?n:1] - 0xD000;
 	map[0xE] = ram.ibank[0] - 0xE000;
 	map[0xF] = NULL;
+#else
+	map[0xC] = NULL;
+	map[0xD] = NULL;
+	map[0xE] = NULL;
+	map[0xF] = NULL;
+#endif
 
+#if 0
 	map = mbc.wmap;
 	map[0x0] = map[0x1] = map[0x2] = map[0x3] = NULL;
 	map[0x4] = map[0x5] = map[0x6] = map[0x7] = NULL;
@@ -181,6 +193,7 @@ void IRAM_ATTR mem_updatemap()
 	map[0xD] = ram.ibank[n?n:1] - 0xD000;
 	map[0xE] = ram.ibank[0] - 0xE000;
 	map[0xF] = NULL;
+#endif
 }
 
 
@@ -426,6 +439,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		}
 		break;
+
 	case MBC_MBC2: /* is this at all right? */
 		if ((a & 0x0100) == 0x0000)
 		{
@@ -438,6 +452,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		}
 		break;
+
 	case MBC_MBC3:
 		switch (ha & 0xE)
 		{
@@ -457,6 +472,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		}
 		break;
+
 	case MBC_RUMBLE:
 		switch (ha & 0xF)
 		{
@@ -477,10 +493,10 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		case 0x2:
 			//if ((b & 0xFF) == 0) b = 0x01;
-			mbc.rombank = (mbc.rombank & 0x100) | (b & 0xFF);
+			mbc.rombank = (mbc.rombank & 0x100) | (b);
 			break;
 		case 0x3:
-			mbc.rombank = (mbc.rombank & 0xFF) | ((int)(b&1)<<8);
+			mbc.rombank = (mbc.rombank & 0x0FF) | ((int)(b&1)<<8);
 			break;
 		case 0x4:
 		case 0x5:
@@ -492,6 +508,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		}
 		break;
+
 	case MBC_HUC1: /* FIXME - this is all guesswork -- is it right??? */
 		switch (ha & 0xE)
 		{
@@ -515,6 +532,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 			break;
 		}
 		break;
+
 	case MBC_HUC3:
 		switch (ha & 0xE)
 		{
@@ -535,6 +553,7 @@ void IRAM_ATTR mbc_write(int a, byte b)
 		}
 		break;
 	}
+
 	/* printf("%02X\n", mbc.rombank); */
 	mem_updatemap();
 }
@@ -646,7 +665,7 @@ byte IRAM_ATTR mem_read(int a)
 	case 0x0:
 	case 0x2:
 		//if (a >= 16384) return 0xff;
-		return rom.bank[0][a];
+		return rom.bank[0][a & 0x3fff];
 	case 0x4:
 	case 0x6:
 		return rom.bank[mbc.rombank][a & 0x3FFF];
