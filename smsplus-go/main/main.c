@@ -74,15 +74,7 @@ void videoTask(void *arg)
     odroid_display_lock_sms_display();
 
     // Draw hourglass
-    send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
-
-    // split in half to fit transaction size limit
-    uint16_t* icon = image_hourglass_empty_black_48dp.pixel_data;
-
-    send_continue_line(icon, 48, 24);
-    send_continue_line(icon + 24 * 48, 48, 24);
-
-    send_continue_wait();
+    odroid_display_show_hourglass();
 
     odroid_display_unlock_sms_display();
 
@@ -130,12 +122,12 @@ static void SaveState()
         char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
+        // esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+        // if (r != ESP_OK)
+        // {
+        //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        //     abort();
+        // }
 
         FILE* f = fopen(pathName, "w");
 
@@ -151,12 +143,12 @@ static void SaveState()
             printf("SaveState: system_save_state OK.\n");
         }
 
-        r = odroid_sdcard_close();
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
+        // r = odroid_sdcard_close();
+        // if (r != ESP_OK)
+        // {
+        //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        //     abort();
+        // }
 
         odroid_display_unlock_sms_display();
 
@@ -198,12 +190,12 @@ static void LoadState(const char* cartName)
         char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
         if (!pathName) abort();
 
-        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
+        // esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+        // if (r != ESP_OK)
+        // {
+        //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        //     abort();
+        // }
 
         FILE* f = fopen(pathName, "r");
         if (f == NULL)
@@ -218,12 +210,12 @@ static void LoadState(const char* cartName)
             printf("LoadState: loadstate OK.\n");
         }
 
-        r = odroid_sdcard_close();
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
+        // r = odroid_sdcard_close();
+        // if (r != ESP_OK)
+        // {
+        //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        //     abort();
+        // }
 
         odroid_display_unlock_sms_display();
 
@@ -467,12 +459,12 @@ void app_main(void)
             abort();
         }
 
-        r = odroid_sdcard_close();
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
+        // r = odroid_sdcard_close();
+        // if (r != ESP_OK)
+        // {
+        //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        //     abort();
+        // }
     }
 
     printf("app_main: cartName='%s'\n", cartName);
