@@ -806,7 +806,7 @@ void ili9341_prepare()
 }
 
 //
-void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGameGear, uint8_t scale)
+void ili9341_write_frame_sms(uint8_t* buffer, uint16_t color[], uint8_t isGameGear, uint8_t scale)
 {
     short x, y;
 
@@ -871,12 +871,14 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                         for (short j = 0; j < 4; ++j)
                         {
                             uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+                            //
+                            // uint8_t r = color[val][0];
+                            // uint8_t g = color[val][1];
+                            // uint8_t b = color[val][2];
+                            //
+                            // samples[j] = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
 
-                            uint8_t r = color[val][0];
-                            uint8_t g = color[val][1];
-                            uint8_t b = color[val][2];
-
-                            samples[j] = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                            samples[j] = color[val];
                         }
 
                         uint16_t mid1 = Blend(samples[1], samples[2]);
@@ -937,13 +939,15 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
                       for (x = 0; x < SMS_WIDTH; ++x)
                       {
-                        uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+                        // uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
+                        //
+                        // uint8_t r = color[val][0];
+                        // uint8_t g = color[val][1];
+                        // uint8_t b = color[val][2];
+                        //
+                        // uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
 
-                        uint8_t r = color[val][0];
-                        uint8_t g = color[val][1];
-                        uint8_t b = color[val][2];
-
-                        uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                        uint16_t sample = color[framePtr[bufferIndex++] & PIXEL_MASK];
                         line_buffer[index++] = ((sample >> 8) | (sample << 8));
                       }
 
@@ -958,7 +962,7 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
         else
         {
             // game Gear
-            framePtr += (24 * 256);
+            //framePtr += (24 * 256);
 
             if (scale)
             {
@@ -981,11 +985,13 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                         {
                             uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
 
-                            uint8_t r = color[val][0];
-                            uint8_t g = color[val][1];
-                            uint8_t b = color[val][2];
+                            // uint8_t r = color[val][0];
+                            // uint8_t g = color[val][1];
+                            // uint8_t b = color[val][2];
+                            //
+                            // uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
 
-                            uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                            uint16_t sample = color[val];
                             sample = (sample >> 8) | (sample << 8);
 
                             line_buffer[index++] = sample;
@@ -1051,11 +1057,13 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                       {
                         uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
 
-                        uint8_t r = color[val][0];
-                        uint8_t g = color[val][1];
-                        uint8_t b = color[val][2];
+                        // uint8_t r = color[val][0];
+                        // uint8_t g = color[val][1];
+                        // uint8_t b = color[val][2];
+                        //
+                        // uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
 
-                        uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
+                        uint16_t sample = color[val];
                         line_buffer[index++] = ((sample >> 8) | (sample << 8));
                       }
 
