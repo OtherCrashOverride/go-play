@@ -279,18 +279,7 @@ static void videoTask(void *arg) {
 
     odroid_display_lock_nes_display();
 
-    send_continue_wait();
-
-    // Draw hourglass
-    send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
-
-    // split in half to fit transaction size limit
-    uint16_t* icon = image_hourglass_empty_black_48dp.pixel_data;
-
-    send_continue_line(icon, 48, 24);
-    send_continue_line(icon + 24 * 48, 48, 24);
-
-    send_continue_wait();
+    odroid_display_show_hourglass();
 
     odroid_display_unlock_nes_display();
     //odroid_display_drain_spi();
