@@ -1,6 +1,9 @@
+#pragma GCC optimize ("O3")
+
 #include "odroid_display.h"
 #include "image_sd_card_alert.h"
 #include "image_sd_card_unknown.h"
+#include "hourglass_empty_black_48dp.h"
 
 #include "image_splash.h"
 
@@ -28,39 +31,43 @@ const int LCD_BACKLIGHT_ON_VALUE = 1;
 const int LCD_SPI_CLOCK_RATE = 40000000;
 
 
-#define MADCTL_MY  0x80
-#define MADCTL_MX  0x40
-#define MADCTL_MV  0x20
-#define MADCTL_ML  0x10
-#define MADCTL_MH 0x04
-#define TFT_RGB_BGR 0x08
-
-
-static spi_transaction_t trans[8];
+#define SPI_TRANSACTION_COUNT (4)
+static spi_transaction_t trans[SPI_TRANSACTION_COUNT];
 static spi_device_handle_t spi;
-static spi_device_handle_t touch_spi;
-static TaskHandle_t xTaskToNotify = NULL;
-bool waitForTransactions = false;
+
+
+#define LINE_BUFFERS (2)
+#define LINE_COUNT (5)
+uint16_t* line[LINE_BUFFERS];
+QueueHandle_t spi_queue;
+QueueHandle_t line_buffer_queue;
+SemaphoreHandle_t line_semaphore;
+SemaphoreHandle_t spi_empty;
+SemaphoreHandle_t spi_count_semaphore;
+
+
 bool isBackLightIntialized = false;
 
-#define LINE_COUNT (5)
-uint16_t* line[2];
 
+ // GB
 #define GAMEBOY_WIDTH (160)
 #define GAMEBOY_HEIGHT (144)
 
+
 // SMS
-#define GAME_WIDTH (256)
-#define GAME_HEIGHT (192)
+#define SMS_WIDTH (256)
+#define SMS_HEIGHT (192)
 
 #define GAMEGEAR_WIDTH (160)
 #define GAMEGEAR_HEIGHT (144)
 
 #define PIXEL_MASK          (0x1F)
 
+
 // NES
 #define NES_GAME_WIDTH (256)
 #define NES_GAME_HEIGHT (224) /* NES_VISIBLE_HEIGHT */
+
 
 /*
  The ILI9341 needs a bunch of command/argument values to be initialized. They are stored in this struct.
@@ -74,6 +81,13 @@ typedef struct {
 #define TFT_CMD_SWRESET	0x01
 #define TFT_CMD_SLEEP 0x10
 #define TFT_CMD_DISPLAY_OFF 0x28
+
+#define MADCTL_MY  0x80
+#define MADCTL_MX  0x40
+#define MADCTL_MV  0x20
+#define MADCTL_ML  0x10
+#define MADCTL_MH 0x04
+#define TFT_RGB_BGR 0x08
 
 DRAM_ATTR static const ili_init_cmd_t ili_sleep_cmds[] = {
     {TFT_CMD_SWRESET, {0}, 0x80},
@@ -129,73 +143,203 @@ DRAM_ATTR static const ili_init_cmd_t ili_init_cmds[] = {
     {0, {0}, 0xff}
 };
 
+static uint16_t* line_buffer_get()
+{
+    uint16_t* buffer;
+    if (xQueueReceive(line_buffer_queue, &buffer, 1000 / portTICK_RATE_MS) != pdTRUE)
+    {
+        abort();
+    }
+
+    return buffer;
+}
+
+void line_buffer_put(uint16_t* buffer)
+{
+    if (xQueueSend(line_buffer_queue, &buffer, 1000 / portTICK_RATE_MS) != pdTRUE)
+    {
+        abort();
+    }
+}
+
+static void spi_task(void *arg)
+{
+    printf("%s: Entered.\n", __func__);
+
+    uint16_t* param;
+    while(1)
+    {
+        // Ensure only LCD transactions are pulled
+        if(xSemaphoreTake(spi_count_semaphore, portMAX_DELAY) == pdTRUE )
+        {
+            spi_transaction_t* t;
+
+            esp_err_t ret = spi_device_get_trans_result(spi, &t, portMAX_DELAY);
+            assert(ret==ESP_OK);
+
+            int dc = (int)t->user & 0x80;
+            if(dc)
+            {
+                xSemaphoreGive(line_semaphore);
+                line_buffer_put(t->tx_buffer);
+            }
+
+            if(xQueueSend(spi_queue, &t, portMAX_DELAY) != pdPASS)
+            {
+                abort();
+            }
+
+            if(uxQueueMessagesWaiting(spi_queue) >= SPI_TRANSACTION_COUNT)
+            {
+                xSemaphoreGive(spi_empty);
+            }
+        }
+        else
+        {
+            printf("%s: xSemaphoreTake failed.\n", __func__);
+        }
+    }
+
+    printf("%s: Exiting.\n", __func__);
+    vTaskDelete(NULL);
+
+    while (1) {}
+}
+
+static void spi_initialize()
+{
+    spi_queue = xQueueCreate(SPI_TRANSACTION_COUNT, sizeof(void*));
+    if(!spi_queue) abort();
+
+
+    line_buffer_queue = xQueueCreate(LINE_BUFFERS, sizeof(void*));
+    if(!line_buffer_queue) abort();
+
+
+    line_semaphore = xSemaphoreCreateCounting(LINE_BUFFERS, LINE_BUFFERS);
+    if (!line_semaphore) abort();
+
+
+    spi_empty = xSemaphoreCreateBinary();
+    if(!spi_empty) abort();
+
+    xSemaphoreGive(spi_empty);
+
+
+    spi_count_semaphore = xSemaphoreCreateCounting(SPI_TRANSACTION_COUNT, 0);
+    if (!spi_count_semaphore) abort();
+
+    xTaskCreatePinnedToCore(&spi_task, "spi_task", 1024 + 768, NULL, 5, NULL, 1);
+}
+
+
+
+static spi_transaction_t* spi_get_transaction()
+{
+    spi_transaction_t* t;
+    xQueueReceive(spi_queue, &t, portMAX_DELAY);
+
+    memset(t, 0, sizeof(*t));
+
+    return t;
+}
+
+static void spi_put_transaction(spi_transaction_t* t)
+{
+    t->rx_buffer = NULL;
+    t->rxlength = t->length;
+
+    if (t->flags & SPI_TRANS_USE_TXDATA)
+    {
+        t->flags |= SPI_TRANS_USE_RXDATA;
+    }
+
+    if (uxSemaphoreGetCount(spi_empty) > 0)
+    {
+        if(xSemaphoreTake(spi_empty, portMAX_DELAY) != pdTRUE)
+        {
+            abort();
+        }
+    }
+
+    esp_err_t ret = spi_device_queue_trans(spi, t, portMAX_DELAY);
+    assert(ret==ESP_OK);
+
+    xSemaphoreGive(spi_count_semaphore);
+}
+
 
 //Send a command to the ILI9341. Uses spi_device_transmit, which waits until the transfer is complete.
-static void ili_cmd(spi_device_handle_t spi, const uint8_t cmd)
+static void ili_cmd(const uint8_t cmd)
 {
-    esp_err_t ret;
-    spi_transaction_t t;
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length=8;                     //Command is 8 bits
-    t.tx_buffer=&cmd;               //The data is the cmd itself
-    t.user=(void*)0;                //D/C needs to be set to 0
-    ret=spi_device_transmit(spi, &t);  //Transmit!
-    assert(ret==ESP_OK);            //Should have had no issues.
+    spi_transaction_t* t = spi_get_transaction();
+
+    t->length = 8;                     //Command is 8 bits
+    t->tx_data[0] = cmd;               //The data is the cmd itself
+    t->user = (void*)0;                //D/C needs to be set to 0
+    t->flags = SPI_TRANS_USE_TXDATA;
+
+    spi_put_transaction(t);
 }
 
 //Send data to the ILI9341. Uses spi_device_transmit, which waits until the transfer is complete.
-static void ili_data(spi_device_handle_t spi, const uint8_t *data, int len)
+static void ili_data(const uint8_t *data, int len)
 {
-    esp_err_t ret;
-    spi_transaction_t t;
-    if (len==0) return;             //no need to send anything
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length=len*8;                 //Len is in bytes, transaction length is in bits.
-    t.tx_buffer=data;               //Data
-    t.user=(void*)1;                //D/C needs to be set to 1
-    ret=spi_device_transmit(spi, &t);  //Transmit!
-    assert(ret==ESP_OK);            //Should have had no issues.
+    if (!len) abort();
+
+    spi_transaction_t* t = spi_get_transaction();
+
+    if (len < 5)
+    {
+        for (int i = 0; i < len; ++i)
+        {
+            t->tx_data[i] = data[i];
+        }
+        t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
+        t->user = (void*)1;                //D/C needs to be set to 1
+        t->flags = SPI_TRANS_USE_TXDATA;
+    }
+    else
+    {
+        t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
+        t->tx_buffer = data;               //Data
+        t->user = (void*)1;                //D/C needs to be set to 1
+        t->flags = 0; //SPI_TRANS_USE_TXDATA;
+    }
+
+    spi_put_transaction(t);
 }
 
 //This function is called (in irq context!) just before a transmission starts. It will
 //set the D/C line to the value indicated in the user field.
 static void ili_spi_pre_transfer_callback(spi_transaction_t *t)
 {
-    int dc=(int)t->user;
+    int dc=(int)t->user & 0x01;
     gpio_set_level(LCD_PIN_NUM_DC, dc);
 }
-
-static void ili_spi_post_transfer_callback(spi_transaction_t *t)
-{
-    if(xTaskToNotify && t == &trans[7])
-    {
-        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-        /* Notify the task that the transmission is complete. */
-        vTaskNotifyGiveFromISR(xTaskToNotify, &xHigherPriorityTaskWoken );
-
-        if (xHigherPriorityTaskWoken)
-            portYIELD_FROM_ISR();
-    }
-}
-
 
 //Initialize the display
 static void ili_init()
 {
-    int cmd=0;
+    int cmd = 0;
+
     //Initialize non-SPI GPIOs
     gpio_set_direction(LCD_PIN_NUM_DC, GPIO_MODE_OUTPUT);
     gpio_set_direction(LCD_PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
 
-
     //Send all the commands
-    while (ili_init_cmds[cmd].databytes!=0xff) {
-        ili_cmd(spi, ili_init_cmds[cmd].cmd);
-        ili_data(spi, ili_init_cmds[cmd].data, ili_init_cmds[cmd].databytes&0x7F);
-        if (ili_init_cmds[cmd].databytes&0x80) {
+    while (ili_init_cmds[cmd].databytes != 0xff)
+    {
+        ili_cmd(ili_init_cmds[cmd].cmd);
+
+        int len = ili_init_cmds[cmd].databytes & 0x7f;
+        if (len) ili_data(ili_init_cmds[cmd].data, len);
+
+        if (ili_init_cmds[cmd].databytes & 0x80)
+        {
             vTaskDelay(100 / portTICK_RATE_MS);
         }
+
         cmd++;
     }
 }
@@ -203,105 +347,59 @@ static void ili_init()
 
 void send_reset_drawing(int left, int top, int width, int height)
 {
-  esp_err_t ret;
+    ili_cmd(0x2A);
 
-  trans[0].tx_data[0]=0x2A;           //Column Address Set
-  trans[1].tx_data[0]=(left) >> 8;              //Start Col High
-  trans[1].tx_data[1]=(left) & 0xff;              //Start Col Low
-  trans[1].tx_data[2]=(left + width - 1) >> 8;       //End Col High
-  trans[1].tx_data[3]=(left + width - 1) & 0xff;     //End Col Low
-  trans[2].tx_data[0]=0x2B;           //Page address set
-  trans[3].tx_data[0]=top >> 8;        //Start page high
-  trans[3].tx_data[1]=top & 0xff;      //start page low
-  trans[3].tx_data[2]=(top + height - 1)>>8;    //end page high
-  trans[3].tx_data[3]=(top + height - 1)&0xff;  //end page low
-  trans[4].tx_data[0]=0x2C;           //memory write
+    const uint8_t data1[] = { (left) >> 8, (left) & 0xff, (left + width - 1) >> 8, (left + width - 1) & 0xff };
+    ili_data(data1, 4);
 
-  //Queue all transactions.
-  for (int x = 0; x < 5; x++) {
-      ret=spi_device_queue_trans(spi, &trans[x], 1000 / portTICK_RATE_MS);
-      assert(ret==ESP_OK);
-  }
+    ili_cmd(0x2B);          //Page address set
 
-  // // Wait for all transactions
-  // spi_transaction_t *rtrans;
-  // for (int x = 0; x < 5; x++) {
-  //     ret=spi_device_get_trans_result(spi, &rtrans, 1000 / portTICK_RATE_MS);
-  //     assert(ret==ESP_OK);
-  // }
+    const uint8_t data2[] = { top >> 8, top & 0xff, (top + height - 1) >> 8, (top + height - 1) & 0xff };
+    ili_data(data2, 4);
+
+    ili_cmd(0x2C);           //memory write
 }
+
+// static void wait_for_line_buffer()
+// {
+//     // if(xSemaphoreTake(line_semaphore, 1000 / portTICK_RATE_MS) != pdTRUE )
+//     // {
+//     //     abort();
+//     // }
+// }
 
 void send_continue_wait()
 {
-  esp_err_t ret;
-
-  if (waitForTransactions)
-  {
-    // Wait for all transactions
-    // spi_transaction_t *rtrans;
-    // for (int x = 0; x < 2; x++) {
-    //     ret=spi_device_get_trans_result(spi, &rtrans, 1000 / portTICK_RATE_MS);
-    //     assert(ret==ESP_OK);
-    // }
-
-    ulTaskNotifyTake(pdTRUE, 1000 / portTICK_RATE_MS /*portMAX_DELAY*/);
-
-    // Drain SPI queue
-    esp_err_t err = ESP_OK;
-    while(err == ESP_OK)
+    if(xSemaphoreTake(spi_empty, 1000 / portTICK_RATE_MS) != pdTRUE )
     {
-        spi_transaction_t* trans_desc;
-        err = spi_device_get_trans_result(spi, &trans_desc, 0);
-
-        //printf("ili9341_poweroff: removed pending transfer.\n");
+        abort();
     }
-
-    waitForTransactions = false;
-  }
 }
 
 void send_continue_line(uint16_t *line, int width, int lineCount)
 {
-  esp_err_t ret;
+    spi_transaction_t* t;
 
-  // if (waitForTransactions)
-  // {
-  //   // Wait for all transactions
-  //   spi_transaction_t *rtrans;
-  //   for (int x = 0; x < 2; x++) {
-  //       ret=spi_device_get_trans_result(spi, &rtrans, 1000 / portTICK_RATE_MS);
-  //       assert(ret==ESP_OK);
-  //   }
-  //
-  //   waitForTransactions = false;
-  // }
 
-  send_continue_wait();
+    t = spi_get_transaction();
 
-  trans[6].tx_data[0] = 0x3C;           //memory write continue
-  trans[6].length = 8;            //Data length, in bits
-  trans[6].flags = SPI_TRANS_USE_TXDATA;
 
-  trans[7].tx_buffer = line;            //finally send the line data
-  trans[7].length = width * lineCount * 2 * 8;            //Data length, in bits
-  trans[7].flags = 0; //undo SPI_TRANS_USE_TXDATA flag
+    t->tx_data[0] = 0x3C;   //memory write continue
+    t->length = 8;
+    t->user = (void*)0;
+    t->flags = SPI_TRANS_USE_TXDATA;
 
-  //Queue all transactions.
-  for (int x = 6; x < 8; x++) {
-      ret=spi_device_queue_trans(spi, &trans[x], 1000 / portTICK_RATE_MS);
-      assert(ret==ESP_OK);
-  }
+    spi_put_transaction(t);
 
-#if 1
-  waitForTransactions = true;
-#else
-  // Wait for all transactions
-  spi_transaction_t *rtrans;
-  for (int x = 0; x < 2; x++) {
-      ret=spi_device_get_trans_result(spi, &rtrans, portMAX_DELAY);
-      assert(ret==ESP_OK);
-  }
-#endif
+
+    t = spi_get_transaction();
+
+    t->length = width * 2 * lineCount * 8;
+    t->tx_buffer = line;
+    t->user = (void*)0x81;
+    t->flags = 0;
+
+    spi_put_transaction(t);
 }
 
 static void backlight_init()
@@ -414,19 +512,23 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 
     odroid_display_lock_gb_display();
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     if (buffer == NULL)
     {
         // clear the buffer
-        memset(line[0], 0, 320 * sizeof(uint16_t));
+        for (int i = 0; i < LINE_BUFFERS; ++i)
+        {
+            memset(line[i], 0, 320 * sizeof(uint16_t) * LINE_COUNT);
+        }
 
         // clear the screen
         send_reset_drawing(0, 0, 320, 240);
 
-        for (y = 0; y < 240; ++y)
+        for (y = 0; y < 240; y += LINE_COUNT)
         {
-        send_continue_line(line[0], 320, 1);
+            uint16_t* line_buffer = line_buffer_get();
+            send_continue_line(line_buffer, 320, LINE_COUNT);
         }
     }
     else
@@ -441,9 +543,10 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 
             send_reset_drawing(26, 0, outputWidth, outputHeight);
 
-            uint8_t alt = 0;
             for (y = 0; y < GAMEBOY_HEIGHT; y += 3)
             {
+                uint16_t* line_buffer = line_buffer_get();
+
                 for (int i = 0; i < 3; ++i)
                 {
                     // skip middle vertical line
@@ -470,11 +573,11 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
                         uint16_t mid1 = Blend(a, b);
                         uint16_t mid2 = Blend(b, c);
 
-                        line[alt][index++] = ((a >> 8) | ((a) << 8));
-                        line[alt][index++] = ((mid1 >> 8) | ((mid1) << 8));
-                        line[alt][index++] = ((b >> 8) | ((b) << 8));
-                        line[alt][index++] = ((mid2 >> 8) | ((mid2) << 8));
-                        line[alt][index++] = ((c >> 8) | ((c ) << 8));
+                        line_buffer[index++] = ((a >> 8) | ((a) << 8));
+                        line_buffer[index++] = ((mid1 >> 8) | ((mid1) << 8));
+                        line_buffer[index++] = ((b >> 8) | ((b) << 8));
+                        line_buffer[index++] = ((mid2 >> 8) | ((mid2) << 8));
+                        line_buffer[index++] = ((c >> 8) | ((c ) << 8));
                     }
                 }
 
@@ -488,34 +591,28 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
 
                 for (short j = 0; j < outputWidth; ++j)
                 {
-                    uint16_t a = line[alt][sourceA++];
+                    uint16_t a = line_buffer[sourceA++];
                     a = ((a >> 8) | ((a) << 8));
 
-                    uint16_t b = line[alt][sourceB++];
+                    uint16_t b = line_buffer[sourceB++];
                     b = ((b >> 8) | ((b) << 8));
 
-                    uint16_t c = line[alt][sourceC++];
+                    uint16_t c = line_buffer[sourceC++];
                     c = ((c >> 8) | ((c) << 8));
 
                     uint16_t mid = Blend(a, b);
                     mid = ((mid >> 8) | ((mid) << 8));
 
-                    line[alt][output1++] = mid;
+                    line_buffer[output1++] = mid;
 
                     uint16_t mid2 = Blend(b, c);
                     mid2 = ((mid2 >> 8) | ((mid2) << 8));
 
-                    line[alt][output2++] = mid2;
+                    line_buffer[output2++] = mid2;
                 }
 
                 // send the data
-                send_continue_line(line[alt], outputWidth, 5);
-
-                // swap buffers
-                if (alt)
-                    alt = 0;
-                else
-                    alt = 1;
+                send_continue_line(line_buffer, outputWidth, 5);
             }
         }
         else
@@ -525,10 +622,10 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
                 GAMEBOY_WIDTH,
                 GAMEBOY_HEIGHT);
 
-            uint8_t alt = 0;
-
             for (y = 0; y < GAMEBOY_HEIGHT; y += LINE_COUNT)
             {
+              uint16_t* line_buffer = line_buffer_get();
+
               int linesWritten = 0;
 
               for (int i = 0; i < LINE_COUNT; ++i)
@@ -541,19 +638,13 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
                   for (x = 0; x < GAMEBOY_WIDTH; ++x)
                   {
                     uint16_t sample = framePtr[bufferIndex++];
-                    line[alt][index++] = ((sample >> 8) | ((sample & 0xff) << 8));
+                    line_buffer[index++] = ((sample >> 8) | ((sample & 0xff) << 8));
                   }
 
                   ++linesWritten;
               }
 
-              send_continue_line(line[alt], GAMEBOY_WIDTH, linesWritten);
-
-              // swap buffers
-              if (alt)
-                  alt = 0;
-              else
-                  alt = 1;
+              send_continue_line(line_buffer, GAMEBOY_WIDTH, linesWritten);
             }
         }
     }
@@ -561,36 +652,32 @@ void ili9341_write_frame_gb(uint16_t* buffer, int scale)
     send_continue_wait();
 
     odroid_display_unlock_gb_display();
-
-    //printf("FRAME: xs=%d, ys=%d, width=%d, height=%d, data=%p\n", xs, ys, width, height, data);
-    //printf("sizeof(RGB565)=%d, sizeof(Pixel) =%d\n", sizeof(RGB565), sizeof(Pixel));
 }
 
 void ili9341_init()
 {
     // Init
+    spi_initialize();
+
+
+    // Line buffers
     const size_t lineSize = 320 * LINE_COUNT * sizeof(uint16_t);
-    line[0] = heap_caps_malloc(lineSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    if (!line[0]) abort();
+    for (int x = 0; x < LINE_BUFFERS; x++)
+    {
+        line[x] = heap_caps_malloc(lineSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
+        if (!line[x]) abort();
 
-    line[1] = heap_caps_malloc(lineSize, MALLOC_CAP_DMA | MALLOC_CAP_8BIT);
-    if (!line[1]) abort();
-
-
-	// Initialize transactions
-    for (int x=0; x<8; x++) {
-        memset(&trans[x], 0, sizeof(spi_transaction_t));
-        if ((x&1)==0) {
-            //Even transfers are commands
-            trans[x].length=8;
-            trans[x].user=(void*)0;
-        } else {
-            //Odd transfers are data
-            trans[x].length=8*4;
-            trans[x].user=(void*)1;
-        }
-        trans[x].flags=SPI_TRANS_USE_TXDATA;
+        printf("%s: line_buffer_put(%p)\n", __func__, line[x]);
+        line_buffer_put(line[x]);
     }
+
+    // Initialize transactions
+    for (int x = 0; x < SPI_TRANSACTION_COUNT; x++)
+    {
+        void* param = &trans[x];
+        xQueueSend(spi_queue, &param, portMAX_DELAY);
+    }
+
 
     // Initialize SPI
     esp_err_t ret;
@@ -612,7 +699,6 @@ void ili9341_init()
     devcfg.spics_io_num = LCD_PIN_NUM_CS;               //CS pin
     devcfg.queue_size = 7;                          //We want to be able to queue 7 transactions at a time
     devcfg.pre_cb = ili_spi_pre_transfer_callback;  //Specify pre-transfer callback to handle D/C line
-    devcfg.post_cb = ili_spi_post_transfer_callback;
     devcfg.flags = 0; //SPI_DEVICE_HALFDUPLEX;
 
     //Initialize the SPI bus
@@ -622,6 +708,9 @@ void ili9341_init()
     //Attach the LCD to the SPI bus
     ret=spi_bus_add_device(VSPI_HOST, &devcfg, &spi);
     assert(ret==ESP_OK);
+
+
+
 
 
     //Initialize the LCD
@@ -636,18 +725,18 @@ void ili9341_init()
 
 void ili9341_poweroff()
 {
-    // Drain SPI queue
-    xTaskToNotify = 0;
-
-    esp_err_t err = ESP_OK;
-
-    while(err == ESP_OK)
-    {
-        spi_transaction_t* trans_desc;
-        err = spi_device_get_trans_result(spi, &trans_desc, 0);
-
-        printf("ili9341_poweroff: removed pending transfer.\n");
-    }
+    // // Drain SPI queue
+    // xTaskToNotify = 0;
+    //
+     esp_err_t err = ESP_OK;
+    //
+    // while(err == ESP_OK)
+    // {
+    //     spi_transaction_t* trans_desc;
+    //     err = spi_device_get_trans_result(spi, &trans_desc, 0);
+    //
+    //     printf("ili9341_poweroff: removed pending transfer.\n");
+    // }
 
 
     // fade off backlight
@@ -662,8 +751,8 @@ void ili9341_poweroff()
         //printf("ili9341_poweroff: cmd=%d, ili_sleep_cmds[cmd].cmd=0x%x, ili_sleep_cmds[cmd].databytes=0x%x\n",
         //    cmd, ili_sleep_cmds[cmd].cmd, ili_sleep_cmds[cmd].databytes);
 
-        ili_cmd(spi, ili_sleep_cmds[cmd].cmd);
-        ili_data(spi, ili_sleep_cmds[cmd].data, ili_sleep_cmds[cmd].databytes & 0x7f);
+        ili_cmd(ili_sleep_cmds[cmd].cmd);
+        ili_data(ili_sleep_cmds[cmd].data, ili_sleep_cmds[cmd].databytes & 0x7f);
         if (ili_sleep_cmds[cmd].databytes & 0x80)
         {
             vTaskDelay(100 / portTICK_RATE_MS);
@@ -723,26 +812,22 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
     odroid_display_lock_sms_display();
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
-
     if (buffer == NULL)
     {
         // clear the buffer
-        for (short i = 0; i < 2; ++i)
+        for (int i = 0; i < LINE_BUFFERS; ++i)
         {
-            //memset(line[0], 0x00, 320 * sizeof(uint16_t));
-            memset(line[i], 0x00, 320 * sizeof(uint16_t) * LINE_COUNT);
+            memset(line[i], 0, 320 * sizeof(uint16_t) * LINE_COUNT);
         }
 
         // clear the screen
         send_reset_drawing(0, 0, 320, 240);
 
-        for (y = 0; y < 240; ++y)
+        for (y = 0; y < 240; y += LINE_COUNT)
         {
-            send_continue_line(line[0], 320, 1);
+            uint16_t* line_buffer = line_buffer_get();
+            send_continue_line(line_buffer, 320, LINE_COUNT);
         }
-
-        send_continue_wait();
     }
     else
     {
@@ -753,31 +838,35 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
         {
             if (scale)
             {
-                const short xOffset = 4;
-                const uint16_t displayWidth = 320 - (xOffset / 4 * 5);
-                const short centerX = (320 - displayWidth) >> 1;
+                // const short xOffset = 4;
+                // const uint16_t displayWidth = 320 - (xOffset / 4 * 5);
+                // const short centerX = (320 - displayWidth) >> 1;
 
-                send_reset_drawing(centerX, 0, displayWidth, 240);
+                //send_reset_drawing(centerX, 0, displayWidth, 240);
 
-                uint8_t alt = 0;
+                const uint16_t displayWidth = 320;
+                send_reset_drawing(0, 0, 320, 240);
 
-                for (y = 0; y < GAME_HEIGHT; y += 4)
+                for (y = 0; y < SMS_HEIGHT; y += 4)
                 {
                   int linesWritten = 0;
+                  uint16_t* line_buffer = line_buffer_get();
 
                   for (short i = 0; i < 4; ++i)
                   {
-                      if((y + i) >= GAME_HEIGHT)
+                      if((y + i) >= SMS_HEIGHT)
                         break;
 
                       int index = (i) * displayWidth;
                       if (i > 1) index += displayWidth; // skip a line for blending
 
-                      int bufferIndex = ((y + i) * GAME_WIDTH) + xOffset;
+                      //int bufferIndex = ((y + i) * SMS_WIDTH) + xOffset;
+                      int bufferIndex = ((y + i) * SMS_WIDTH);
 
                       uint16_t samples[4];
 
-                      for (x = 0; x < GAME_WIDTH - (xOffset * 2); x += 4)
+                      //for (x = 0; x < SMS_WIDTH - (xOffset * 2); x += 4)
+                      for (x = 0; x < SMS_WIDTH; x += 4)
                       {
                         for (short j = 0; j < 4; ++j)
                         {
@@ -792,11 +881,11 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
                         uint16_t mid1 = Blend(samples[1], samples[2]);
 
-                        line[alt][index++] = ((samples[0] >> 8) | (samples[0] << 8));
-                        line[alt][index++] = ((samples[1] >> 8) | (samples[1] << 8));
-                        line[alt][index++] = ((mid1 >> 8) | (mid1 << 8));
-                        line[alt][index++] = ((samples[2] >> 8) | (samples[2] << 8));
-                        line[alt][index++] = ((samples[3] >> 8) | (samples[3] << 8));
+                        line_buffer[index++] = ((samples[0] >> 8) | (samples[0] << 8));
+                        line_buffer[index++] = ((samples[1] >> 8) | (samples[1] << 8));
+                        line_buffer[index++] = ((mid1 >> 8) | (mid1 << 8));
+                        line_buffer[index++] = ((samples[2] >> 8) | (samples[2] << 8));
+                        line_buffer[index++] = ((samples[3] >> 8) | (samples[3] << 8));
                       }
 
                       ++linesWritten;
@@ -809,51 +898,44 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
                   for (short i = 0; i < displayWidth; ++i)
                   {
-                      uint16_t sample1 = line[alt][srcIndex1++];
+                      uint16_t sample1 = line_buffer[srcIndex1++];
                       sample1 = ((sample1 >> 8) | (sample1 << 8));
 
-                      uint16_t sample2 = line[alt][srcIndex2++];
+                      uint16_t sample2 = line_buffer[srcIndex2++];
                       sample2 = ((sample2 >> 8) | (sample2 << 8));
 
                       uint16_t mid1 = Blend(sample1, sample2);
 
-                      line[alt][dstIndex++] = ((mid1 >> 8) | (mid1 << 8));
+                      line_buffer[dstIndex++] = ((mid1 >> 8) | (mid1 << 8));
                   }
 
                   ++linesWritten;
 
                   // display
-                  send_continue_line(line[alt], displayWidth, linesWritten);
-
-                  // swap buffers
-                  if (alt)
-                    alt = 0;
-                  else
-                    alt = 1;
+                  send_continue_line(line_buffer, displayWidth, linesWritten);
                 }
             }
             else
             {
-                send_reset_drawing((320 / 2) - (GAME_WIDTH / 2),
-                    (240 / 2) - (GAME_HEIGHT / 2),
-                    GAME_WIDTH,
-                    GAME_HEIGHT);
+                send_reset_drawing((320 / 2) - (SMS_WIDTH / 2),
+                    (240 / 2) - (SMS_HEIGHT / 2),
+                    SMS_WIDTH,
+                    SMS_HEIGHT);
 
-                uint8_t alt = 0;
-
-                for (y = 0; y < GAME_HEIGHT; y += 4)
+                for (y = 0; y < SMS_HEIGHT; y += LINE_COUNT)
                 {
                   int linesWritten = 0;
+                  uint16_t* line_buffer = line_buffer_get();
 
-                  for (short i = 0; i < 4; ++i)
+                  for (short i = 0; i < LINE_COUNT; ++i)
                   {
-                      if((y + i) >= GAME_HEIGHT)
+                      if((y + i) >= SMS_HEIGHT)
                         break;
 
-                      int index = (i) * GAME_WIDTH;
-                      int bufferIndex = ((y + i) * GAME_WIDTH);
+                      int index = (i) * SMS_WIDTH;
+                      int bufferIndex = ((y + i) * SMS_WIDTH);
 
-                      for (x = 0; x < GAME_WIDTH; ++x)
+                      for (x = 0; x < SMS_WIDTH; ++x)
                       {
                         uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
 
@@ -862,20 +944,14 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                         uint8_t b = color[val][2];
 
                         uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
-                        line[alt][index++] = ((sample >> 8) | (sample << 8));
+                        line_buffer[index++] = ((sample >> 8) | (sample << 8));
                       }
 
                       ++linesWritten;
                   }
 
                   // display
-                  send_continue_line(line[alt], GAME_WIDTH, linesWritten);
-
-                  // swap buffers
-                  if (alt)
-                    alt = 0;
-                  else
-                    alt = 1;
+                  send_continue_line(line_buffer, SMS_WIDTH, linesWritten);
                 }
             }
         }
@@ -886,22 +962,22 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
             if (scale)
             {
-                const short outputWidth = 318;
+                const short outputWidth = 320;
                 const short outputHeight = 240;
-                const short centerX = (320 - outputWidth) >> 1;
 
-                send_reset_drawing(centerX, 0, outputWidth, outputHeight);
+                send_reset_drawing(0, 0, outputWidth, outputHeight);
 
-                uint8_t alt = 0;
                 for (y = 0; y < 144; y += 3)
                 {
+                    uint16_t* line_buffer = line_buffer_get();
+
                     for (short i = 0; i < 3; ++i)
                     {
                         // skip middle vertical line
                         int index = i * outputWidth * 2;
-                        int bufferIndex = ((y + i) * 256) + 48 + 1;
+                        int bufferIndex = ((y + i) * 256) + 48;
 
-                        for (x = 1; x < GAMEGEAR_WIDTH - (1 * 2); ++x)
+                        for (x = 0; x < GAMEGEAR_WIDTH; ++x)
                         {
                             uint8_t val = framePtr[bufferIndex++] & PIXEL_MASK;
 
@@ -912,8 +988,8 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                             uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
                             sample = (sample >> 8) | (sample << 8);
 
-                            line[alt][index++] = sample;
-                            line[alt][index++] = sample;
+                            line_buffer[index++] = sample;
+                            line_buffer[index++] = sample;
                         }
                     }
 
@@ -927,31 +1003,28 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
 
                     for (short j = 0; j < outputWidth; ++j)
                     {
-                      uint16_t a = line[alt][sourceA++];
+                      uint16_t a = line_buffer[sourceA++];
                       a = ((a >> 8) | ((a) << 8));
 
-                      uint16_t b = line[alt][sourceB++];
+                      uint16_t b = line_buffer[sourceB++];
                       b = ((b >> 8) | ((b) << 8));
 
-                      uint16_t c = line[alt][sourceC++];
+                      uint16_t c = line_buffer[sourceC++];
                       c = ((c >> 8) | ((c) << 8));
 
                       uint16_t mid = Blend(a, b);
                       mid = ((mid >> 8) | ((mid) << 8));
 
-                      line[alt][output1++] = mid;
+                      line_buffer[output1++] = mid;
 
                       uint16_t mid2 = Blend(b, c);
                       mid2 = ((mid2 >> 8) | ((mid2) << 8));
 
-                      line[alt][output2++] = mid2;
+                      line_buffer[output2++] = mid2;
                     }
 
                     // send the data
-                    send_continue_line(line[alt], outputWidth, 5);
-
-                    // swap buffers
-                    alt = alt ? 0 : 1;
+                    send_continue_line(line_buffer, outputWidth, 5);
                 }
             }
             else
@@ -961,11 +1034,10 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                     GAMEGEAR_WIDTH,
                     GAMEGEAR_HEIGHT);
 
-                uint8_t alt = 0;
-
                 for (y = 0; y < GAMEGEAR_HEIGHT; y += LINE_COUNT)
                 {
                   int linesWritten = 0;
+                  uint16_t* line_buffer = line_buffer_get();
 
                   for (short i = 0; i < LINE_COUNT; ++i)
                   {
@@ -984,27 +1056,20 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint8_t color[32][3], uint8_t isGa
                         uint8_t b = color[val][2];
 
                         uint16_t sample = (((r << 8) & 0xF800) | ((g << 3) & 0x07E0) | ((b >> 3) & 0x001F));
-                        line[alt][index++] = ((sample >> 8) | (sample << 8));
+                        line_buffer[index++] = ((sample >> 8) | (sample << 8));
                       }
 
                       ++linesWritten;
                   }
 
                   // display
-                  send_continue_line(line[alt], GAMEGEAR_WIDTH, linesWritten);
-
-                  // swap buffers
-                  if (alt)
-                    alt = 0;
-                  else
-                    alt = 1;
+                  send_continue_line(line_buffer, GAMEGEAR_WIDTH, linesWritten);
                 }
             }
         }
-
-        send_continue_wait();
     }
 
+    send_continue_wait();
     odroid_display_unlock_sms_display();
 }
 
@@ -1016,19 +1081,23 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
     odroid_display_lock_nes_display();
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     if (buffer == NULL)
     {
         // clear the buffer
-        memset(line[0], 0x00, 320 * sizeof(uint16_t));
+        for (int i = 0; i < LINE_BUFFERS; ++i)
+        {
+            memset(line[i], 0, 320 * sizeof(uint16_t) * LINE_COUNT);
+        }
 
         // clear the screen
         send_reset_drawing(0, 0, 320, 240);
 
-        for (y = 0; y < 240; ++y)
+        for (y = 0; y < 240; y += LINE_COUNT)
         {
-            send_continue_line(line[0], 320, 1);
+            uint16_t* line_buffer = line_buffer_get();
+            send_continue_line(line_buffer, 320, LINE_COUNT);
         }
     }
     else
@@ -1042,11 +1111,10 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
             send_reset_drawing((320 / 2) - (displayWidth / 2), top, displayWidth, NES_GAME_HEIGHT);
 
-            uint8_t alt = 0;
-
             for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
             {
               int linesWritten = 0;
+              uint16_t* line_buffer = line_buffer_get();
 
               for (short i = 0; i < LINE_COUNT; ++i)
               {
@@ -1066,34 +1134,30 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
                         samples[j] = myPalette[val];
                     }
 
-                    uint16_t mid = Blend(samples[1], samples[2]);
+                    uint16_t mid = Blend(samples[1] >> 8 | samples[1] << 8, samples[2] >> 8 | samples[2] << 8);
 
-                    line[alt][index++] = samples[0];
-                    line[alt][index++] = samples[1];
-                    line[alt][index++] = mid;
-                    line[alt][index++] = samples[2];
-                    line[alt][index++] = samples[3];
+                    line_buffer[index++] = samples[0];
+                    line_buffer[index++] = samples[1];
+                    line_buffer[index++] = mid >> 8 | mid << 8;
+                    line_buffer[index++] = samples[2];
+                    line_buffer[index++] = samples[3];
                   }
 
                   ++linesWritten;
               }
 
               // display
-              send_continue_line(line[alt], displayWidth, linesWritten);
-
-              // swap buffers
-              alt = alt ? 0 : 1;
+              send_continue_line(line_buffer, displayWidth, linesWritten);
             }
         }
         else
         {
             send_reset_drawing((320 / 2) - (NES_GAME_WIDTH / 2), (240 / 2) - (NES_GAME_HEIGHT / 2), NES_GAME_WIDTH, NES_GAME_HEIGHT);
 
-            uint8_t alt = 0;
-
             for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
             {
               int linesWritten = 0;
+              uint16_t* line_buffer = line_buffer_get();
 
               for (short i = 0; i < LINE_COUNT; ++i)
               {
@@ -1105,17 +1169,14 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
                   for (x = 0; x < NES_GAME_WIDTH; ++x)
                   {
-                    line[alt][index++] = myPalette[framePtr[bufferIndex++]];
+                    line_buffer[index++] = myPalette[framePtr[bufferIndex++]];
                   }
 
                   ++linesWritten;
               }
 
               // display
-              send_continue_line(line[alt], NES_GAME_WIDTH, linesWritten);
-
-              // swap buffers
-              alt = alt ? 0 : 1;
+              send_continue_line(line_buffer, NES_GAME_WIDTH, linesWritten);
             }
         }
     }
@@ -1125,43 +1186,43 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
     odroid_display_unlock_nes_display();
 }
 
-void ili9341_write_frame(uint16_t* buffer)
-{
-    short x, y;
-
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
-
-    if (buffer == NULL)
-    {
-        // clear the buffer
-        memset(line[0], 0x00, 320 * sizeof(uint16_t));
-
-        // clear the screen
-        send_reset_drawing(0, 0, 320, 240);
-
-        for (y = 0; y < 240; ++y)
-        {
-            send_continue_line(line[0], 320, 1);
-        }
-
-        send_continue_wait();
-    }
-    else
-    {
-        const int displayWidth = 320;
-        const int displayHeight = 240;
-
-
-        send_reset_drawing(0, 0, displayWidth, displayHeight);
-
-        for (y = 0; y < displayHeight; y += 4)
-        {
-            send_continue_line(buffer + y * displayWidth, displayWidth, 4);
-        }
-
-        send_continue_wait();
-    }
-}
+// void ili9341_write_frame(uint16_t* buffer)
+// {
+//     short x, y;
+//
+//     //xTaskToNotify = xTaskGetCurrentTaskHandle();
+//
+//     if (buffer == NULL)
+//     {
+//         // clear the buffer
+//         memset(line[0], 0x00, 320 * sizeof(uint16_t));
+//
+//         // clear the screen
+//         send_reset_drawing(0, 0, 320, 240);
+//
+//         for (y = 0; y < 240; ++y)
+//         {
+//             send_continue_line(line[0], 320, 1);
+//         }
+//
+//         send_continue_wait();
+//     }
+//     else
+//     {
+//         const int displayWidth = 320;
+//         const int displayHeight = 240;
+//
+//
+//         send_reset_drawing(0, 0, displayWidth, displayHeight);
+//
+//         for (y = 0; y < displayHeight; y += 4)
+//         {
+//             send_continue_line(buffer + y * displayWidth, displayWidth, 4);
+//         }
+//
+//         send_continue_wait();
+//     }
+// }
 
 void ili9341_write_frame_rectangle(short left, short top, short width, short height, uint16_t* buffer)
 {
@@ -1170,55 +1231,64 @@ void ili9341_write_frame_rectangle(short left, short top, short width, short hei
     if (left < 0 || top < 0) abort();
     if (width < 1 || height < 1) abort();
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     send_reset_drawing(left, top, width, height);
 
     if (buffer == NULL)
     {
         // clear the buffer
-        memset(line[0], 0x00, 320 * sizeof(uint16_t));
-
-        // clear the screen
-        for (y = 0; y < height; ++y)
+        for (int i = 0; i < LINE_BUFFERS; ++i)
         {
-            send_continue_line(line[0], width, 1);
+            memset(line[i], 0, 320 * sizeof(uint16_t) * LINE_COUNT);
         }
 
-        send_continue_wait();
+        // clear the screen
+        send_reset_drawing(0, 0, 320, 240);
+
+        for (y = 0; y < 240; y += LINE_COUNT)
+        {
+            uint16_t* line_buffer = line_buffer_get();
+            send_continue_line(line_buffer, 320, LINE_COUNT);
+        }
     }
     else
     {
-        short alt = 0;
+        uint16_t* line_buffer = line_buffer_get();
+
         for (y = 0; y < height; y++)
         {
-            memcpy(line[alt], buffer + y * width, width * sizeof(uint16_t));
-            send_continue_line(line[alt], width, 1);
-
-            ++alt;
-            if (alt > 1) alt = 0;
+            memcpy(line_buffer, buffer + y * width, width * sizeof(uint16_t));
+            send_continue_line(line_buffer, width, 1);
         }
-
-        send_continue_wait();
     }
+
+    send_continue_wait();
 }
 
 void ili9341_clear(uint16_t color)
 {
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     send_reset_drawing(0, 0, 320, 240);
 
+
     // clear the buffer
-    for (int i = 0; i < 320; ++i)
+    for (int i = 0; i < LINE_BUFFERS; ++i)
     {
-        line[0][i] = color;
+        for (int j = 0; j < 320 * LINE_COUNT; ++j)
+        {
+            line[i][j] = color;
+        }
     }
 
     // clear the screen
-    for (int y = 0; y < 240; ++y)
+    send_reset_drawing(0, 0, 320, 240);
+
+    for (int y = 0; y < 240; y += LINE_COUNT)
     {
-        send_continue_line(line[0], 320, 1);
+        uint16_t* line_buffer = line_buffer_get();
+        send_continue_line(line_buffer, 320, LINE_COUNT);
     }
 
     send_continue_wait();
@@ -1231,48 +1301,49 @@ void ili9341_write_frame_rectangleLE(short left, short top, short width, short h
     if (left < 0 || top < 0) abort();
     if (width < 1 || height < 1) abort();
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     send_reset_drawing(left, top, width, height);
 
     if (buffer == NULL)
     {
         // clear the buffer
-        memset(line[0], 0x00, 320 * sizeof(uint16_t));
-
-        // clear the screen
-        for (y = 0; y < height; ++y)
+        for (int i = 0; i < LINE_BUFFERS; ++i)
         {
-            send_continue_line(line[0], width, 1);
+            memset(line[i], 0, 320 * sizeof(uint16_t) * LINE_COUNT);
         }
 
-        send_continue_wait();
+        // clear the screen
+        send_reset_drawing(0, 0, 320, 240);
+
+        for (y = 0; y < 240; y += LINE_COUNT)
+        {
+            uint16_t* line_buffer = line_buffer_get();
+            send_continue_line(line_buffer, 320, LINE_COUNT);
+        }
     }
     else
     {
-        short alt = 0;
         for (y = 0; y < height; y++)
         {
-            //memcpy(line[alt], buffer + y * width, width * sizeof(uint16_t));
+            uint16_t* line_buffer = line_buffer_get();
+
             for (int i = 0; i < width; ++i)
             {
                 uint16_t pixel = buffer[y * width + i];
-                line[alt][i] = pixel << 8 | pixel >> 8;
+                line_buffer[i] = pixel << 8 | pixel >> 8;
             }
 
-            send_continue_line(line[alt], width, 1);
-
-            ++alt;
-            if (alt > 1) alt = 0;
+            send_continue_line(line_buffer, width, 1);
         }
-
-        send_continue_wait();
     }
+
+    send_continue_wait();
 }
 
 void display_tasktonotify_set(int value)
 {
-    xTaskToNotify = value;
+    //xTaskToNotify = value;
 }
 
 int is_backlight_initialized()
@@ -1284,34 +1355,26 @@ void odroid_display_show_splash()
 {
     ili9341_write_frame_rectangleLE(0, 0, image_splash.width, image_splash.height, image_splash.pixel_data);
 
-    // Drain SPI queue
-    xTaskToNotify = 0;
-
-    esp_err_t err = ESP_OK;
-
-    while(err == ESP_OK)
-    {
-        spi_transaction_t* trans_desc;
-        err = spi_device_get_trans_result(spi, &trans_desc, 0);
-
-        //printf("odroid_display_show_splash: removed pending transfer.\n");
-    }
+    // // Drain SPI queue
+    // xTaskToNotify = 0;
+    //
+    // esp_err_t err = ESP_OK;
+    //
+    // while(err == ESP_OK)
+    // {
+    //     spi_transaction_t* trans_desc;
+    //     err = spi_device_get_trans_result(spi, &trans_desc, 0);
+    //
+    //     //printf("odroid_display_show_splash: removed pending transfer.\n");
+    // }
 }
 
 void odroid_display_drain_spi()
 {
-    // Drain SPI queue
-    xTaskToNotify = 0;
-
-    esp_err_t err = ESP_OK;
-
-    while(err == ESP_OK)
-    {
-        spi_transaction_t* trans_desc;
-        err = spi_device_get_trans_result(spi, &trans_desc, 0);
-
-        //printf("odroid_display_drain_spi: removed pending transfer.\n");
-    }
+    // if(xSemaphoreTake(spi_empty, 1000 / portTICK_RATE_MS) != pdTRUE )
+    // {
+    //     abort();
+    // }
 }
 
 void odroid_display_show_sderr(int errNum)
@@ -1332,6 +1395,15 @@ void odroid_display_show_sderr(int errNum)
 
     // Drain SPI queue
     odroid_display_drain_spi();
+}
+
+void odroid_display_show_hourglass()
+{
+    ili9341_write_frame_rectangleLE((320 / 2) - (image_hourglass_empty_black_48dp.width / 2),
+        (240 / 2) - (image_hourglass_empty_black_48dp.height / 2),
+        image_hourglass_empty_black_48dp.width,
+        image_hourglass_empty_black_48dp.height,
+        image_hourglass_empty_black_48dp.pixel_data);
 }
 
 
