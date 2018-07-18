@@ -44,7 +44,7 @@ static inline byte* GetRomPtr(short bank)
 			// Stop the SPI bus
 			odroid_display_lock_gb_display();
 
-			odroid_display_drain_spi();
+			//odroid_display_drain_spi();
 
 			// Load the 16K page
 			if (fseek(RomFile, OFFSET, SEEK_SET))

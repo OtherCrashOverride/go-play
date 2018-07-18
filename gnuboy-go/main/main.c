@@ -185,15 +185,11 @@ void videoTask(void *arg)
 
 
     // Draw hourglass
-    send_reset_drawing((320 / 2 - 48 / 2), 96, 48, 48);
+    odroid_display_lock_gb_display();
 
-    // split in half to fit transaction size limit
-    uint16_t* icon = image_hourglass_empty_black_48dp.pixel_data;
+    odroid_display_show_hourglass();
 
-    send_continue_line(icon, 48, 24);
-    send_continue_line(icon + 24 * 48, 48, 24);
-
-    send_continue_wait();
+    odroid_display_unlock_gb_display();
 
 
     videoTaskIsRunning = false;
