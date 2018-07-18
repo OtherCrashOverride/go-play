@@ -380,11 +380,28 @@ void app_main(void)
                 esp_restart();
             }
 
-            if (bootState.values[ODROID_INPUT_START])
+
+            // Reset emulator if button held at startup to
+            // override save state
+            const int TIMEOUT = 1000; // 1 second
+            int totalTime = 0;
+
+            while(bootState.values[ODROID_INPUT_START])
             {
-                // Reset emulator if button held at startup to
-                // override save state
-                forceConsoleReset = true; //emu_reset();
+                const int DELAY = 100;
+
+                vTaskDelay(DELAY / portTICK_RATE_MS);
+                totalTime += DELAY;
+
+                if (totalTime >= TIMEOUT)
+                {
+                    printf("%s: Save state override.\n", __func__);
+
+                    forceConsoleReset = true;
+                    break;
+                }
+
+                bootState = odroid_input_read_raw();
             }
         }
             break;

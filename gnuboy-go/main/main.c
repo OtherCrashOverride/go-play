@@ -447,7 +447,7 @@ void app_main(void)
         case ESP_SLEEP_WAKEUP_ULP:
         case ESP_SLEEP_WAKEUP_UNDEFINED:
         {
-            printf("app_main: Non deep sleep startup\n");
+            printf("%s: Non deep sleep startup\n", __func__);
 
             odroid_gamepad_state bootState = odroid_input_read_raw();
 
@@ -463,11 +463,28 @@ void app_main(void)
                 esp_restart();
             }
 
-            if (bootState.values[ODROID_INPUT_START])
+
+            // Reset emulator if button held at startup to
+            // override save state
+            const int TIMEOUT = 1000; // 1 second
+            int totalTime = 0;
+
+            while(bootState.values[ODROID_INPUT_START])
             {
-                // Reset emulator if button held at startup to
-                // override save state
-                forceConsoleReset = true;
+                const int DELAY = 100;
+
+                vTaskDelay(DELAY / portTICK_RATE_MS);
+                totalTime += DELAY;
+
+                if (totalTime >= TIMEOUT)
+                {
+                    printf("%s: Save state override.\n", __func__);
+
+                    forceConsoleReset = true;
+                    break;
+                }
+
+                bootState = odroid_input_read_raw();
             }
 
             break;
