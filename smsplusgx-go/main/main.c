@@ -506,6 +506,8 @@ void app_main(void)
     // Load the ROM
     load_rom(FILENAME);
 
+    printf("%s: cart.crc=%#010lx\n", __func__, cart.crc);
+
     // // Close SD card
     // r = odroid_sdcard_close();
     // if (r != ESP_OK)
@@ -671,15 +673,34 @@ void app_main(void)
             coleco.keypad[0] = 0xff;
             coleco.keypad[1] = 0xff;
 
-            if (joystick.values[ODROID_INPUT_START])
+            // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, *, #
+            switch (cart.crc)
             {
-                coleco.keypad[0] = 1;
-            }
+                case 0xab021f1a:    // Frogger
+                    if (joystick.values[ODROID_INPUT_START])
+                    {
+                        coleco.keypad[0] = 10; // *
+                    }
 
-            if (previousState.values[ODROID_INPUT_SELECT] &&
-                !joystick.values[ODROID_INPUT_SELECT])
-            {
-                system_reset();
+                    if (previousState.values[ODROID_INPUT_SELECT] &&
+                        !joystick.values[ODROID_INPUT_SELECT])
+                    {
+                        system_reset();
+                    }
+                    break;
+
+                default:
+                    if (joystick.values[ODROID_INPUT_START])
+                    {
+                        coleco.keypad[0] = 1;
+                    }
+
+                    if (previousState.values[ODROID_INPUT_SELECT] &&
+                        !joystick.values[ODROID_INPUT_SELECT])
+                    {
+                        system_reset();
+                    }
+                    break;
             }
         }
 
