@@ -506,7 +506,7 @@ void app_main(void)
     // Load the ROM
     load_rom(FILENAME);
 
-    printf("%s: cart.crc=%#010lx\n", __func__, cart.crc);
+    //printf("%s: cart.crc=%#010lx\n", __func__, cart.crc);
 
     // // Close SD card
     // r = odroid_sdcard_close();
@@ -677,9 +677,23 @@ void app_main(void)
             switch (cart.crc)
             {
                 case 0xab021f1a:    // Frogger
+                case 0x9cc3fabc:    // Alcazar
                     if (joystick.values[ODROID_INPUT_START])
                     {
                         coleco.keypad[0] = 10; // *
+                    }
+
+                    if (previousState.values[ODROID_INPUT_SELECT] &&
+                        !joystick.values[ODROID_INPUT_SELECT])
+                    {
+                        system_reset();
+                    }
+                    break;
+
+                case 0x1796de5e:    // Boulder Dash
+                    if (joystick.values[ODROID_INPUT_START])
+                    {
+                        coleco.keypad[0] = 11; // #
                     }
 
                     if (previousState.values[ODROID_INPUT_SELECT] &&
