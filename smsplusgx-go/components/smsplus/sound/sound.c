@@ -50,6 +50,7 @@ int sound_init(void)
   if(snd.enabled)
   {
     restore_sound = 1;
+
     psgbuf = malloc(SN76489_GetContextSize());
     if (!psgbuf) abort();
 

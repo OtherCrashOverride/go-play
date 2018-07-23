@@ -43,30 +43,36 @@ typedef struct
     uint8 vram[0x4000];
     uint8 cram[0x40];
     uint8 reg[0x10];
+
     uint8 vscroll;
     uint8 status;
     uint8 latch;
     uint8 pending;
+
     uint16 addr;
     uint8 code;
     uint8 buffer;
+
     int pn, ct, pg, sa, sg;
     int ntab;
     int satb;
     int line;
     int left;
+
     uint16 lpf;
     uint8 height;
     uint8 extended;
+
     uint8 mode;
     uint8 irq;
     uint8 vint_pending;
     uint8 hint_pending;
+
     uint16 cram_latch;
     uint16 spr_col;
     uint8 spr_ovr;
     uint8 bd;
-} vdp_t;
+} __attribute__((packed, aligned(1))) vdp_t;
 
 /* Global data */
 extern vdp_t vdp;

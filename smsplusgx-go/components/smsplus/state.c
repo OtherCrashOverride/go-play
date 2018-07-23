@@ -27,6 +27,7 @@
 //static unsigned char* state = (unsigned char*)ESP32_PSRAM + 0x100000; //[0x10000];
 //static unsigned int bufferptr;
 
+// TODO: Investigate why SMS save games from debug compile crash release compile
 
 int system_save_state(void *mem)
 {
@@ -79,6 +80,7 @@ int system_save_state(void *mem)
   return 0;
 }
 
+sms_t sms_tmp;
 void system_load_state(void *mem)
 {
   int i;
@@ -100,8 +102,8 @@ void system_load_state(void *mem)
   /*** Set SMS Context ***/
   //memcpy (&sms, &state[bufferptr], sizeof (sms_t));
   //bufferptr += sizeof (sms_t);
-  sms_t sms_tmp;
-  fread(&sms_tmp, sizeof(sms), 1, mem);
+
+  fread(&sms_tmp, sizeof(sms_tmp), 1, mem);
   if(sms.console != sms_tmp.console)
   {
       system_reset();
