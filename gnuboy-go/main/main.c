@@ -416,8 +416,8 @@ static void DoMenuHome()
 
 void app_main(void)
 {
-    printf("gnuboy start.\n");
-
+    printf("gnuboy (%s-%s).\n", COMPILEDATE, GITREV);
+    
     nvs_flash_init();
 
     odroid_system_init();

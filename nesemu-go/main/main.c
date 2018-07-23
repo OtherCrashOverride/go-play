@@ -41,7 +41,7 @@ static const char *TAG = "main";
 
 int app_main(void)
 {
-	printf("nesemu entered.\n");
+	printf("nesemu (%s-%s).\n", COMPILEDATE, GITREV);
 
 	nvs_flash_init();
 

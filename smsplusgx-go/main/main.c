@@ -312,8 +312,7 @@ void system_manage_sram(uint8 *sram, int slot, int mode)
 //char cartName[1024];
 void app_main(void)
 {
-    printf("smsplusgx start.\n");
-
+    printf("smsplusgx (%s-%s).\n", COMPILEDATE, GITREV);
 
     framebuffer[0] = heap_caps_malloc(256 * 192, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
     if (!framebuffer[0]) abort();
