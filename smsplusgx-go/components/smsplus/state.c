@@ -122,7 +122,9 @@ void system_load_state(void *mem)
   fread(&cart.sram[0], 0x8000, 1, mem);
 
   /*** Set Z80 Context ***/
+  int (*irq_cb)(int) = Z80.irq_callback;
   fread(&Z80, sizeof(Z80), 1, mem);
+  Z80.irq_callback = irq_cb;
 
 #if 0
   /*** Set YM2413 ***/
