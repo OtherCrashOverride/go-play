@@ -37,7 +37,7 @@ esp_err_t odroid_sdcard_open(const char* base_path)
     else
     {
         sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-    	host.slot = VSPI_HOST; // HSPI_HOST;
+    	host.slot = HSPI_HOST; // HSPI_HOST;
     	//host.max_freq_khz = SDMMC_FREQ_HIGHSPEED; //10000000;
         host.max_freq_khz = SDMMC_FREQ_DEFAULT;
 
