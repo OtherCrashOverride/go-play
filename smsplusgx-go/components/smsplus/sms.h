@@ -92,29 +92,42 @@ enum {
 };
 
 /* SMS context */
+typedef struct {
+  uint8 pdr;    /* Parallel data register */
+  uint8 ddr;    /* Data direction register */
+  uint8 txdata; /* Transmit data buffer */
+  uint8 rxdata; /* Receive data buffer */
+
+  uint8 sctrl;  /* Serial mode control and status */
+  uint8 _pad00;
+  uint8 _pad01;
+  uint8 _pad02;
+} __attribute__((packed, aligned(1))) sio_t;
+
 typedef struct
 {
   uint8 wram[0x2000];
+
   uint8 paused;
   uint8 save;
   uint8 territory;
   uint8 console;
+
   uint8 display;
   uint8 fm_detect;
   uint8 glasses_3d;
   uint8 hlatch;
+
   uint8 use_fm;
   uint8 memctrl;
   uint8 ioctrl;
-  struct {
-    uint8 pdr;    /* Parallel data register */
-    uint8 ddr;    /* Data direction register */
-    uint8 txdata; /* Transmit data buffer */
-    uint8 rxdata; /* Receive data buffer */
-    uint8 sctrl;  /* Serial mode control and status */
-  } sio;
+  uint8 _pad00;
+
+  sio_t sio;
+
   uint8 device[2];
   uint8 gun_offset;
+  uint8 _pad01;
 }  __attribute__((packed, aligned(1))) sms_t;
 
 /* BIOS ROM */

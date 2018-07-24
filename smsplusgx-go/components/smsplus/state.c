@@ -27,41 +27,43 @@
 //static unsigned char* state = (unsigned char*)ESP32_PSRAM + 0x100000; //[0x10000];
 //static unsigned int bufferptr;
 
-// TODO: Investigate why SMS save games from debug compile crash release compile
+/*
+system_load_state: sizeof sms=8216
+system_load_state: sizeof vdp=16524
+system_load_state: sizeof Z80=72
+system_load_state: sizeof SN76489_Context=92
+
+system_save_state: sizeof sms=8216
+system_save_state: sizeof vdp=16524
+system_save_state: sizeof Z80=72
+system_save_state: sizeof SN76489_Context=92
+*/
 
 int system_save_state(void *mem)
 {
   int i;
 
-  /* allocate temporary buffer */
-  //bufferptr = 0;
-
-  /*** Save VDP state ***/
-  //memcpy (&state[bufferptr], &vdp, sizeof (vdp_t));
-  //bufferptr += sizeof (vdp_t);
-  fwrite(&vdp, sizeof(vdp), 1, mem);
+  printf("%s: sizeof sms=%d\n", __func__, sizeof(sms));
+  printf("%s: sizeof vdp=%d\n", __func__, sizeof(vdp));
+  printf("%s: sizeof Z80=%d\n", __func__, sizeof(Z80));
+  printf("%s: sizeof SN76489_Context=%d\n", __func__, sizeof(SN76489_Context));
 
   /*** Save SMS Context ***/
-  //memcpy (&state[bufferptr], &sms, sizeof (sms_t));
-  //bufferptr += sizeof (sms_t);
   fwrite(&sms, sizeof(sms), 1, mem);
+
+  /*** Save VDP state ***/
+  fwrite(&vdp, sizeof(vdp), 1, mem);
 
   /*** Save cart info ***/
   for (i = 0; i < 4; i++)
   {
-    //memcpy (&state[bufferptr], &cart.fcr[i], 1);
-    //bufferptr++;
     fwrite(&cart.fcr[i], 1, 1, mem);
   }
 
   /*** Save SRAM ***/
-  //memcpy (&state[bufferptr], cart.sram, 0x8000);
-  //bufferptr += 0x8000;
   fwrite(&cart.sram[0], 0x8000, 1, mem);
 
   /*** Save Z80 Context ***/
-  //memcpy (&state[bufferptr], &Z80, sizeof (Z80_Regs));
-  //bufferptr += sizeof (Z80_Regs);
   fwrite(&Z80, sizeof(Z80), 1, mem);
 
 #if 0
@@ -71,46 +73,40 @@ int system_save_state(void *mem)
 #endif
 
   /*** Save SN76489 ***/
-  //memcpy (&state[bufferptr], SN76489_GetContextPtr (0),SN76489_GetContextSize ());
-  //bufferptr += SN76489_GetContextSize ();
   fwrite(SN76489_GetContextPtr(0), SN76489_GetContextSize(), 1, mem);
 
-  /* write to FILE */
-  //fwrite(&state[0], 0x10000, 1, mem);
   return 0;
 }
 
-sms_t sms_tmp;
+
 void system_load_state(void *mem)
 {
   int i;
   uint8 *buf;
 
-
-  /* write to FILE */
-  //fread(&state[0], 0x10000, 1, mem);
+  printf("%s: sizeof sms=%d\n", __func__, sizeof(sms));
+  printf("%s: sizeof vdp=%d\n", __func__, sizeof(vdp));
+  printf("%s: sizeof Z80=%d\n", __func__, sizeof(Z80));
+  printf("%s: sizeof SN76489_Context=%d\n", __func__, sizeof(SN76489_Context));
 
   /* Initialize everything */
-  //bufferptr = 0;
   system_reset();
 
-  /*** Set vdp state ***/
-  //memcpy (&vdp, &state[bufferptr], sizeof (vdp_t));
-  //bufferptr += sizeof (vdp_t);
-  fread(&vdp, sizeof(vdp), 1, mem);
-
   /*** Set SMS Context ***/
-  //memcpy (&sms, &state[bufferptr], sizeof (sms_t));
-  //bufferptr += sizeof (sms_t);
-
+  sms_t sms_tmp;
   fread(&sms_tmp, sizeof(sms_tmp), 1, mem);
   if(sms.console != sms_tmp.console)
   {
       system_reset();
       printf("%s: Bad save data\n", __func__);
-       return;
-   }
-   sms = sms_tmp;
+      return;
+  }
+  sms = sms_tmp;
+
+  /*** Set vdp state ***/
+  fread(&vdp, sizeof(vdp), 1, mem);
+
+
 
   /** restore video & audio settings (needed if timing changed) ***/
   vdp_init();
@@ -119,19 +115,13 @@ void system_load_state(void *mem)
   /*** Set cart info ***/
   for (i = 0; i < 4; i++)
   {
-    //memcpy (&cart.fcr[i], &state[bufferptr], 1);
-    //bufferptr++;
     fread(&cart.fcr[i], 1, 1, mem);
   }
 
   /*** Set SRAM ***/
-  //memcpy (cart.sram, &state[bufferptr], 0x8000);
-  //bufferptr += 0x8000;
   fread(&cart.sram[0], 0x8000, 1, mem);
 
   /*** Set Z80 Context ***/
-  //memcpy (&Z80, &state[bufferptr], sizeof (Z80_Regs));
-  //bufferptr += sizeof (Z80_Regs);
   fread(&Z80, sizeof(Z80), 1, mem);
 
 #if 0
@@ -144,8 +134,6 @@ void system_load_state(void *mem)
 #endif
 
   /*** Set SN76489 ***/
-  //memcpy (SN76489_GetContextPtr(0), &state[bufferptr], SN76489_GetContextSize ());
-  //bufferptr += SN76489_GetContextSize ();
   fread(SN76489_GetContextPtr(0), SN76489_GetContextSize(), 1, mem);
 
   if ((sms.console != CONSOLE_COLECO) && (sms.console != CONSOLE_SG1000))

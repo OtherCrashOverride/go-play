@@ -53,7 +53,11 @@ typedef struct
     uint8 code;
     uint8 buffer;
 
-    int pn, ct, pg, sa, sg;
+    int pn;
+    int ct;
+    int pg;
+    int sa;
+    int sg;
     int ntab;
     int satb;
     int line;
@@ -70,8 +74,11 @@ typedef struct
 
     uint16 cram_latch;
     uint16 spr_col;
+
     uint8 spr_ovr;
     uint8 bd;
+    uint8 _pad00;
+    uint8 _pad01;
 } __attribute__((packed, aligned(1))) vdp_t;
 
 /* Global data */

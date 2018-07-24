@@ -31,14 +31,25 @@ typedef struct
 {
   PAIR  pc,sp,af,bc,de,hl,ix,iy,wz;
   PAIR  af2,bc2,de2,hl2;
-  UINT8  r,r2,iff1,iff2,halt,im,i;
+
+  UINT8 r;
+  UINT8 r2;
+  UINT8 iff1;
+  UINT8 iff2;
+
+  UINT8 halt;
+  UINT8 im;
+  UINT8 i;
   UINT8  nmi_state;      /* nmi line state */
+
   UINT8  nmi_pending;    /* nmi pending */
   UINT8  irq_state;      /* irq line state */
   UINT8  after_ei;      /* are we in the EI shadow? */
+  UINT8 _pad00;
+
   const struct z80_irq_daisy_chain *daisy;
   int    (*irq_callback)(int irqline);
-}  Z80_Regs;
+} __attribute__((packed, aligned(1))) Z80_Regs;
 
 
 extern int z80_cycle_count;
@@ -65,4 +76,3 @@ uint8 (*cpu_readport16)(uint16 port);
 
 
 #endif
-

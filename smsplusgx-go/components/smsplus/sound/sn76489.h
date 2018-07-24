@@ -39,27 +39,32 @@ typedef struct
     int Mute;
     int BoostNoise;
     int VolumeArray;
-    
+
     /* Variables */
     float Clock;
     float dClock;
     int PSGStereo;
     int NumClocksForSample;
     int WhiteNoiseFeedback;
-    
+
     /* PSG registers: */
     UINT16 Registers[8];        /* Tone, vol x4 */
+
     int LatchedRegister;
+
     UINT16 NoiseShiftRegister;
     INT16 NoiseFreq;            /* Noise channel signal generator frequency */
-    
+
     /* Output calculation variables */
     INT16 ToneFreqVals[4];      /* Frequency register values (counters) */
+
     INT8 ToneFreqPos[4];        /* Frequency channel flip-flops */
+
     INT16 Channels[4];          /* Value of each channel, before stereo is applied */
+
     INT32 IntermediatePos[4];   /* intermediate values used at boundaries between + and - */
 
-} SN76489_Context;
+} __attribute__((packed, aligned(1))) SN76489_Context;
 
 /* Function prototypes */
 void SN76489_Init(int which, int PSGClockValue, int SamplingRate);
@@ -75,4 +80,3 @@ void SN76489_GGStereoWrite(int which, int data);
 void SN76489_Update(int which, INT16 **buffer, int length);
 
 #endif /* _SN76489_H_ */
-
