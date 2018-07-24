@@ -1,3 +1,4 @@
+#pragma GCC optimize ("O3")
 /******************************************************************************
  *  Sega Master System / GameGear Emulator
  *  Copyright (C) 1998-2007  Charles MacDonald
@@ -38,7 +39,7 @@ static io_state *io_current;
 
 /*
   from smpower WIKI:
-  
+
   Port $3F: I/O port control
 
   Bit  Function
@@ -74,7 +75,7 @@ void pio_init(void)
       io_lut[j][i].tr_dir[0]   = (i & 0x01) ? PIN_DIR_IN : PIN_DIR_OUT;
       io_lut[j][i].th_dir[0]   = (i & 0x02) ? PIN_DIR_IN : PIN_DIR_OUT;
       io_lut[j][i].tr_dir[1]   = (i & 0x04) ? PIN_DIR_IN : PIN_DIR_OUT;
-      io_lut[j][i].th_dir[1]   = (i & 0x08) ? PIN_DIR_IN : PIN_DIR_OUT; 
+      io_lut[j][i].th_dir[1]   = (i & 0x08) ? PIN_DIR_IN : PIN_DIR_OUT;
 
       if(j == 1)
       {
@@ -126,7 +127,7 @@ void pio_ctrl_w(uint8 data)
   /* save old TH values */
   th_level[0] = io_current->th_level[0];
   th_level[1] = io_current->th_level[1];
-  
+
   /* HCounter is latched on TH Low->High transition */
   io_current = &io_lut[sms.territory][data];
   if ((io_current->th_dir[0]   == PIN_DIR_IN) &&
@@ -217,10 +218,10 @@ static uint8 device_r(int port)
       break;
 
     /* LIGHTGUN emulation:
-      Basically, the light phaser set TH low when it detects the TV light beam 
-      We emulate this by comparing our current "LightGun" position with HV counter values 
-      The value must be set long enough as the software generally make several access to 
-      get an average value because the lightgun see a circular spot, not a single pixel 
+      Basically, the light phaser set TH low when it detects the TV light beam
+      We emulate this by comparing our current "LightGun" position with HV counter values
+      The value must be set long enough as the software generally make several access to
+      get an average value because the lightgun see a circular spot, not a single pixel
       The system latches the current HV counter values on TH high-to-low transition, this
       is used by software to enable/disable LightGuns and support 2 players simultaneously
     */
@@ -244,7 +245,7 @@ static uint8 device_r(int port)
           {
             /* latch estimated HC value */
             sms.hlatch = sms.gun_offset + (input.analog[port][0])/2;
-            lightgun_latch = 1; 
+            lightgun_latch = 1;
           }
         }
         else
@@ -267,7 +268,7 @@ uint8 pio_port_r(int offset)
 {
   uint8 temp = 0xFF;
 
-  /* 
+  /*
     If I/O chip is disabled, reads return last byte of instruction
     that read the I/O port.
   */
@@ -294,7 +295,7 @@ uint8 pio_port_r(int offset)
 
       /* read I/O port A pins */
       temp = device_r(0) & 0x3f;
-      
+
       /* read I/O port B low pins (Game Gear is special case) */
       if (IS_GG) temp |= ((sio_r(1) & 0x03) << 6);
       else temp |= ((device_r(1) & 0x03) << 6);
@@ -343,7 +344,7 @@ uint8 pio_port_r(int offset)
         temp |= ((state & 0x40) << 1);  /* Insert TH2 */
         temp |= (device_r(0) & 0x40);   /* Insert TH1 */
       }
-        
+
       /* Adjust TR state if it is an output */
       if(io_current->tr_dir[1] == PIN_DIR_OUT)
       {
@@ -454,7 +455,7 @@ void sio_w(int offset, int data)
 }
 
 /* Colecovision I/O chip support */
-static uint8 keymask[12] = 
+static uint8 keymask[12] =
 {
   0x7a, /* 0 */
   0x7d, /* 1 */
