@@ -285,29 +285,30 @@ static void ili_cmd(const uint8_t cmd)
 //Send data to the ILI9341. Uses spi_device_transmit, which waits until the transfer is complete.
 static void ili_data(const uint8_t *data, int len)
 {
-    if (!len) abort();
-
-    spi_transaction_t* t = spi_get_transaction();
-
-    if (len < 5)
+    if (len)
     {
-        for (int i = 0; i < len; ++i)
+        spi_transaction_t* t = spi_get_transaction();
+
+        if (len < 5)
         {
-            t->tx_data[i] = data[i];
+            for (int i = 0; i < len; ++i)
+            {
+                t->tx_data[i] = data[i];
+            }
+            t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
+            t->user = (void*)1;                //D/C needs to be set to 1
+            t->flags = SPI_TRANS_USE_TXDATA;
         }
-        t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
-        t->user = (void*)1;                //D/C needs to be set to 1
-        t->flags = SPI_TRANS_USE_TXDATA;
-    }
-    else
-    {
-        t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
-        t->tx_buffer = data;               //Data
-        t->user = (void*)1;                //D/C needs to be set to 1
-        t->flags = 0; //SPI_TRANS_USE_TXDATA;
-    }
+        else
+        {
+            t->length = len * 8;                 //Len is in bytes, transaction length is in bits.
+            t->tx_buffer = data;               //Data
+            t->user = (void*)1;                //D/C needs to be set to 1
+            t->flags = 0; //SPI_TRANS_USE_TXDATA;
+        }
 
-    spi_put_transaction(t);
+        spi_put_transaction(t);
+    }
 }
 
 //This function is called (in irq context!) just before a transmission starts. It will
