@@ -23,7 +23,7 @@
 
 const char* SD_BASE_PATH = "/sd";
 
-#define AUDIO_SAMPLE_RATE (32000)
+#define AUDIO_SAMPLE_RATE (22050)
 
 uint16 palette[PALETTE_SIZE];
 uint8_t* framebuffer[2];

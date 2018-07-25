@@ -26,6 +26,7 @@
 #include "shared.h"
 #include "hvc.h"
 
+#if 0
 /* Mark a pattern as dirty */
 #define MARK_BG_DIRTY(addr)                         \
 {                                                   \
@@ -37,9 +38,9 @@
   }                                                 \
   bg_name_dirty[name] |= (1 << ((addr >> 2) & 7));  \
 }
-
-extern void vramMarkTileDirty(int index);
-
+#else
+#define MARK_BG_DIRTY(addr) 
+#endif
 
 /* VDP context */
 vdp_t vdp;
@@ -273,8 +274,6 @@ void vdp_reg_w(uint8 r, uint8 d)
   }
 }
 
-extern void vramMarkTileDirty(int index);
-
 void vdp_write(int offset, uint8 data)
 {
   int index;
@@ -301,7 +300,6 @@ void vdp_write(int offset, uint8 data)
           {
             vdp.vram[index] = data;
             MARK_BG_DIRTY(vdp.addr);
-            vramMarkTileDirty(index);
           }
           vdp.buffer = data;
           break;
@@ -447,7 +445,6 @@ void gg_vdp_write(int offset, uint8 data)
           {
             vdp.vram[index] = data;
             MARK_BG_DIRTY(vdp.addr);
-            vramMarkTileDirty(index);
           }
           vdp.buffer = data;
           break;
@@ -523,7 +520,6 @@ void md_vdp_write(int offset, uint8 data)
           {
             vdp.vram[index] = data;
             MARK_BG_DIRTY(vdp.addr);
-            vramMarkTileDirty(index);
           }
           break;
 
@@ -594,7 +590,6 @@ void tms_write(int offset, int data)
           {
             vdp.vram[index] = data;
             MARK_BG_DIRTY(vdp.addr);
-            vramMarkTileDirty(index);
           }
           break;
       }

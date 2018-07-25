@@ -80,7 +80,8 @@ int sound_init(void)
     snd.mixer_callback = sound_mixer_callback;
 
   /* Calculate number of samples generated per frame */
-  snd.sample_count = (snd.sample_rate / snd.fps);
+  snd.sample_count = (snd.sample_rate / snd.fps) + 1;
+  printf("%s: sample_count=%d (actual=%f)\n", __func__, snd.sample_count, (float)snd.sample_rate / (float)snd.fps);
 
   /* Calculate size of sample buffer */
   snd.buffer_size = snd.sample_count * 2;
@@ -265,8 +266,9 @@ void sound_mixer_callback(int16 **stream, int16 **output, int length)
   for(i = 0; i < length; i++)
   {
     //int16 temp = (fm_buffer[0][i] + fm_buffer[1][i]) / 2;
-    output[0][i] = /*temp + */psg_buffer[0][i] << 1;
-    output[1][i] = /*temp + */psg_buffer[1][i] << 1;
+    //int16 temp = psg_buffer[1][i];
+    output[0][i] = psg_buffer[0][i] * 1.75f;
+    output[1][i] = psg_buffer[1][i] * 1.75f;
   }
 }
 

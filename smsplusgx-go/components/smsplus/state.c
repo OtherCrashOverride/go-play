@@ -165,13 +165,13 @@ void system_load_state(void *mem)
     }
   }
 
-  /* Force full pattern cache update */
-  bg_list_index = 0x200;
-  for(i = 0; i < 0x200; i++)
-  {
-    bg_name_list[i] = i;
-    bg_name_dirty[i] = -1;
-  }
+  // /* Force full pattern cache update */
+  // bg_list_index = 0x200;
+  // for(i = 0; i < 0x200; i++)
+  // {
+  //   bg_name_list[i] = i;
+  //   bg_name_dirty[i] = -1;
+  // }
 
   /* Restore palette */
   for(i = 0; i < PALETTE_SIZE; i++)
