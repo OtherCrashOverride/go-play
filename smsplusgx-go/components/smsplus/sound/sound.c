@@ -267,8 +267,8 @@ void sound_mixer_callback(int16 **stream, int16 **output, int length)
   {
     //int16 temp = (fm_buffer[0][i] + fm_buffer[1][i]) / 2;
     //int16 temp = psg_buffer[1][i];
-    output[0][i] = psg_buffer[0][i] * 1.75f;
-    output[1][i] = psg_buffer[1][i] * 1.75f;
+    output[0][i] = psg_buffer[0][i] * 2.75f;
+    output[1][i] = psg_buffer[1][i] * 2.75f;
   }
 }
 
