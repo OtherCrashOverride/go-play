@@ -2,7 +2,7 @@
 #ifndef _SN76489_H_
 #define _SN76489_H_
 
-#define MAX_SN76489     1
+#define MAX_SN76489     4
 
 /*
     More testing is needed to find and confirm feedback patterns for
@@ -49,22 +49,17 @@ typedef struct
 
     /* PSG registers: */
     UINT16 Registers[8];        /* Tone, vol x4 */
-
     int LatchedRegister;
-
     UINT16 NoiseShiftRegister;
     INT16 NoiseFreq;            /* Noise channel signal generator frequency */
 
     /* Output calculation variables */
     INT16 ToneFreqVals[4];      /* Frequency register values (counters) */
-
     INT8 ToneFreqPos[4];        /* Frequency channel flip-flops */
-
     INT16 Channels[4];          /* Value of each channel, before stereo is applied */
-
     INT32 IntermediatePos[4];   /* intermediate values used at boundaries between + and - */
 
-} __attribute__((packed, aligned(1))) SN76489_Context;
+} SN76489_Context;
 
 /* Function prototypes */
 void SN76489_Init(int which, int PSGClockValue, int SamplingRate);
