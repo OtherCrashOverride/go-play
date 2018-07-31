@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <esp_attr.h>
+#include <stdint.h>
 
 struct lcd lcd;
 
@@ -642,6 +643,8 @@ inline void lcd_begin()
 
 
 extern int frame;
+extern uint16_t* displayBuffer[2];
+int lastLcdDisabled = 0;
 
 void IRAM_ATTR lcd_refreshline()
 {
@@ -649,11 +652,6 @@ void IRAM_ATTR lcd_refreshline()
 
 	if ((frame % 7) == 0) ++frame;
 
-	if (!(R_LCDC & 0x80))
-	{
-		memset(fb.ptr, 0xff, 144 * 160 * 2);
-		return;
-	}
 
 	L = R_LY;
 	X = R_SCX;
@@ -671,6 +669,22 @@ void IRAM_ATTR lcd_refreshline()
 
 	if ((frame % 2) == 0)
 	{
+		if (!(R_LCDC & 0x80))
+		{
+			if (!lastLcdDisabled)
+			{
+				memset(displayBuffer[0], 0xff, 144 * 160 * 2);
+				memset(displayBuffer[1], 0xff, 144 * 160 * 2);
+
+				lastLcdDisabled = 1;
+			}
+
+			return;
+		}
+
+		lastLcdDisabled = 0;
+
+
 		spr_enum();
 		tilebuf();
 
