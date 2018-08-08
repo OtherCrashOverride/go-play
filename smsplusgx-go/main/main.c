@@ -397,6 +397,12 @@ void app_main(void)
             break;
     }
 
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
+    {
+        forceConsoleReset = true;
+        //odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+    }
+
 
     ili9341_init();
 
@@ -601,6 +607,8 @@ void app_main(void)
 
     bool ignoreMenuButton = previousState.values[ODROID_INPUT_MENU];
 
+    scaling_enabled = odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE_SMS) ? false : true;
+
     while (true)
     {
         odroid_gamepad_state joystick;
@@ -644,6 +652,7 @@ void app_main(void)
         if (joystick.values[ODROID_INPUT_START] && !previousState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
         {
             scaling_enabled = !scaling_enabled;
+            odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_SMS, scaling_enabled ? 0 : 1);
         }
 
 

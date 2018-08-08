@@ -1,3 +1,5 @@
+#include "odroid_settings.h"
+
 #include "nvs_flash.h"
 #include "esp_heap_caps.h"
 
@@ -14,7 +16,8 @@ static const char* NvsKey_VRef = "VRef";
 static const char* NvsKey_AppSlot = "AppSlot";
 static const char* NvsKey_DataSlot = "DataSlot";
 static const char* NvsKey_Backlight = "Backlight";
-
+static const char* NvsKey_StartAction = "StartAction";
+static const char* NvsKey_ScaleDisabled = "ScaleDisabled";
 
 
 char* odroid_util_GetFileName(const char* path)
@@ -352,6 +355,97 @@ void odroid_settings_Backlight_set(int32_t value)
 
     // Read
     err = nvs_set_i32(my_handle, NvsKey_Backlight, value);
+    if (err != ESP_OK) abort();
+
+    // Close
+    nvs_close(my_handle);
+}
+
+
+ODROID_START_ACTION odroid_settings_StartAction_get()
+{
+    int result = 0;
+
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+    // Read
+    err = nvs_get_i32(my_handle, NvsKey_StartAction, &result);
+    if (err == ESP_OK)
+    {
+        printf("%s: value=%d\n", __func__, result);
+    }
+
+    // Close
+    nvs_close(my_handle);
+
+    return result;
+}
+void odroid_settings_StartAction_set(ODROID_START_ACTION value)
+{
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+    // Write
+    err = nvs_set_i32(my_handle, NvsKey_StartAction, value);
+    if (err != ESP_OK) abort();
+
+    // Close
+    nvs_close(my_handle);
+}
+
+
+uint8_t odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE system)
+{
+    int result = 0;
+
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+    // Read
+    err = nvs_get_i32(my_handle, NvsKey_ScaleDisabled, &result);
+    if (err == ESP_OK)
+    {
+        printf("%s: result=%d\n", __func__, result);
+    }
+
+    // Close
+    nvs_close(my_handle);
+
+    return (result & system) ? 1 : 0;
+}
+void odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE system, uint8_t value)
+{
+	printf("%s: system=%#010x, value=%d\n", __func__, system, value);
+
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+	// Read
+	int result = 0;
+	err = nvs_get_i32(my_handle, NvsKey_ScaleDisabled, &result);
+	if (err == ESP_OK)
+	{
+		printf("%s: result=%d\n", __func__, result);
+	}
+
+	// set system flag
+	//result = 1;
+	result &= ~system;
+	//printf("%s: result=%d\n", __func__, result);
+	result |= (system & (value ? 0xffffffff : 0));
+	printf("%s: set result=%d\n", __func__, result);
+
+    // Write
+    err = nvs_set_i32(my_handle, NvsKey_ScaleDisabled, result);
     if (err != ESP_OK) abort();
 
     // Close

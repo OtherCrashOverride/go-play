@@ -7,6 +7,20 @@ char* odroid_util_GetFileExtenstion(const char* path);
 char* odroid_util_GetFileNameWithoutExtension(const char* path);
 
 
+typedef enum
+{
+    ODROID_START_ACTION_NORMAL = 0,
+    ODROID_START_ACTION_RESTART
+} ODROID_START_ACTION;
+
+typedef enum
+{
+    ODROID_SCALE_DISABLE_NES = (1 << 0),
+    ODROID_SCALE_DISABLE_GB = (1 << 1),
+    ODROID_SCALE_DISABLE_SMS = (1 << 2)
+} ODROID_SCALE_DISABLE;
+
+
 int32_t odroid_settings_VRef_get();
 void odroid_settings_VRef_set(int32_t value);
 
@@ -24,3 +38,9 @@ void odroid_settings_DataSlot_set(int32_t value);
 
 int32_t odroid_settings_Backlight_get();
 void odroid_settings_Backlight_set(int32_t value);
+
+ODROID_START_ACTION odroid_settings_StartAction_get();
+void odroid_settings_StartAction_set(ODROID_START_ACTION value);
+
+uint8_t odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE system);
+void odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE system, uint8_t value);

@@ -455,6 +455,7 @@ static int ConvertJoystickInput()
     if (state.values[ODROID_INPUT_START] && !previousJoystickState.values[ODROID_INPUT_RIGHT] && state.values[ODROID_INPUT_RIGHT])
     {
         scaling_enabled = !scaling_enabled;
+        odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_NES, scaling_enabled ? 0 : 1);
     }
 
 
@@ -580,8 +581,16 @@ int osd_init()
             break;
     }
 
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
+    {
+        forceConsoleReset = true;
+        //odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+    }
+
 
     Volume = odroid_settings_Volume_get();
+
+    scaling_enabled = odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE_NES) ? false : true;
 
     previousJoystickState = odroid_input_read_raw();
     ignoreMenuButton = previousJoystickState.values[ODROID_INPUT_MENU];

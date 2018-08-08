@@ -417,7 +417,7 @@ static void DoMenuHome()
 void app_main(void)
 {
     printf("gnuboy (%s-%s).\n", COMPILEDATE, GITREV);
-    
+
     nvs_flash_init();
 
     odroid_system_init();
@@ -471,6 +471,12 @@ void app_main(void)
         default:
             printf("app_main: Not a deep sleep reset\n");
             break;
+    }
+
+    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
+    {
+        forceConsoleReset = true;
+        //odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
     }
 
 
@@ -588,6 +594,8 @@ void app_main(void)
     }
 
 
+    scaling_enabled = odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE_GB) ? false : true;
+
     odroid_input_gamepad_read(&lastJoysticState);
 
     while (true)
@@ -643,6 +651,7 @@ void app_main(void)
         if (joystick.values[ODROID_INPUT_START] && !lastJoysticState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
         {
             scaling_enabled = !scaling_enabled;
+            odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_GB, scaling_enabled ? 0 : 1);
         }
 
 
