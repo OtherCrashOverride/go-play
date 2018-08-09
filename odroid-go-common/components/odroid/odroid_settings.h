@@ -20,6 +20,12 @@ typedef enum
     ODROID_SCALE_DISABLE_SMS = (1 << 2)
 } ODROID_SCALE_DISABLE;
 
+typedef enum
+{
+    ODROID_AUDIO_SINK_SPEAKER = 0,
+    ODROID_AUDIO_SINK_DAC
+} ODROID_AUDIO_SINK;
+
 
 int32_t odroid_settings_VRef_get();
 void odroid_settings_VRef_set(int32_t value);
@@ -44,3 +50,6 @@ void odroid_settings_StartAction_set(ODROID_START_ACTION value);
 
 uint8_t odroid_settings_ScaleDisabled_get(ODROID_SCALE_DISABLE system);
 void odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE system, uint8_t value);
+
+ODROID_AUDIO_SINK odroid_settings_AudioSink_get();
+void odroid_settings_AudioSink_set(ODROID_AUDIO_SINK value);

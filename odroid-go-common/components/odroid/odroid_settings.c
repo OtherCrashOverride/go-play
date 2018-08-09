@@ -18,6 +18,7 @@ static const char* NvsKey_DataSlot = "DataSlot";
 static const char* NvsKey_Backlight = "Backlight";
 static const char* NvsKey_StartAction = "StartAction";
 static const char* NvsKey_ScaleDisabled = "ScaleDisabled";
+static const char* NvsKey_AudioSink = "AudioSink";
 
 
 char* odroid_util_GetFileName(const char* path)
@@ -446,6 +447,43 @@ void odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE system, uint8_t valu
 
     // Write
     err = nvs_set_i32(my_handle, NvsKey_ScaleDisabled, result);
+    if (err != ESP_OK) abort();
+
+    // Close
+    nvs_close(my_handle);
+}
+
+
+ODROID_AUDIO_SINK odroid_settings_AudioSink_get()
+{
+    int result = ODROID_AUDIO_SINK_SPEAKER;
+
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+    // Read
+    err = nvs_get_i32(my_handle, NvsKey_AudioSink, &result);
+    if (err == ESP_OK)
+    {
+        printf("%s: value=%d\n", __func__, result);
+    }
+
+    // Close
+    nvs_close(my_handle);
+
+    return (ODROID_AUDIO_SINK)result;
+}
+void odroid_settings_AudioSink_set(ODROID_AUDIO_SINK value)
+{
+    // Open
+    nvs_handle my_handle;
+    esp_err_t err = nvs_open(NvsNamespace, NVS_READWRITE, &my_handle);
+    if (err != ESP_OK) abort();
+
+    // Write
+    err = nvs_set_i32(my_handle, NvsKey_AudioSink, (int)value);
     if (err != ESP_OK) abort();
 
     // Close

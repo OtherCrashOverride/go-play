@@ -123,7 +123,7 @@ static int osd_init_sound(void)
 
 	audio_frame=malloc(4*DEFAULT_FRAGSIZE);
 
-    odroid_audio_init(DEFAULT_SAMPLERATE);
+    odroid_audio_init(odroid_settings_AudioSink_get(), DEFAULT_SAMPLERATE);
 
 #endif
 

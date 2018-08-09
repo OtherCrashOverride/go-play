@@ -492,7 +492,7 @@ void app_main(void)
     ili9341_write_frame_gb(NULL, true);
 
     // Audio hardware
-    odroid_audio_init(AUDIO_SAMPLE_RATE);
+    odroid_audio_init(odroid_settings_AudioSink_get(), AUDIO_SAMPLE_RATE);
 
     // Allocate display buffers
     displayBuffer[0] = heap_caps_malloc(160 * 144 * 2, MALLOC_CAP_8BIT | MALLOC_CAP_DMA);
