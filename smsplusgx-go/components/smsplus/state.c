@@ -135,8 +135,18 @@ void system_load_state(void *mem)
   bufferptr += FM_GetContextSize ();
 #endif
 
+  // Preserve clock rate
+  SN76489_Context* psg = (SN76489_Context*)SN76489_GetContextPtr(0);
+  float psg_Clock = psg->Clock;
+  float psg_dClock = psg->dClock;
+
   /*** Set SN76489 ***/
   fread(SN76489_GetContextPtr(0), SN76489_GetContextSize(), 1, mem);
+
+  // Restore clock rate
+  psg->Clock = psg_Clock;
+  psg->dClock = psg_dClock;
+
 
   if ((sms.console != CONSOLE_COLECO) && (sms.console != CONSOLE_SG1000))
   {

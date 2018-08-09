@@ -779,7 +779,7 @@ void app_main(void)
 
         // send audio
 
-        odroid_audio_submit((short*)audioBuffer, snd.sample_count);
+        odroid_audio_submit((short*)audioBuffer, snd.sample_count - 1);
 
 
         stopTime = xthal_get_ccount();

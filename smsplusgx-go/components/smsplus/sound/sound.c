@@ -73,7 +73,9 @@ int sound_init(void)
 
   /* Check if sample rate is invalid */
   if(snd.sample_rate < 8000 || snd.sample_rate > 48000)
-    return 0;
+  {
+      abort();
+  }
 
   /* Assign stream mixing callback if none provided */
   if(!snd.mixer_callback)
@@ -81,7 +83,7 @@ int sound_init(void)
 
   /* Calculate number of samples generated per frame */
   snd.sample_count = (snd.sample_rate / snd.fps) + 1;
-  printf("%s: sample_count=%d (actual=%f)\n", __func__, snd.sample_count, (float)snd.sample_rate / (float)snd.fps);
+  printf("%s: sample_count=%d fps=%d (actual=%f)\n", __func__, snd.sample_count, snd.fps, (float)snd.sample_rate / (float)snd.fps);
 
   /* Calculate size of sample buffer */
   snd.buffer_size = snd.sample_count * 2;
