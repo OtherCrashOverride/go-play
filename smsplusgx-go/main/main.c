@@ -400,7 +400,7 @@ void app_main(void)
     if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
     {
         forceConsoleReset = true;
-        //odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
+        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
     }
 
 
