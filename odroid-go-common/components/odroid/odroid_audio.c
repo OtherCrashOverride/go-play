@@ -96,6 +96,28 @@ void odroid_audio_init(ODROID_AUDIO_SINK sink, int sample_rate)
             .data_in_num = -1                                                       //Not used
         };
         i2s_set_pin(I2S_NUM, &pin_config);
+
+
+        // Disable internal amp
+        esp_err_t err;
+
+        err = gpio_set_direction(GPIO_NUM_25, GPIO_MODE_OUTPUT);
+        if (err != ESP_OK)
+        {
+            abort();
+        }
+
+        err = gpio_set_direction(GPIO_NUM_26, GPIO_MODE_DISABLE);
+        if (err != ESP_OK)
+        {
+            abort();
+        }
+
+        err = gpio_set_level(GPIO_NUM_25, 0);
+        if (err != ESP_OK)
+        {
+            abort();
+        }
     }
     else
     {
