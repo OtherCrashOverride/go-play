@@ -684,7 +684,7 @@ void app_main(void)
             // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, *, #
             switch (cart.crc)
             {
-                case 0xab021f1a:    // Frogger
+                case 0x798002a2:    // Frogger
                 case 0x9cc3fabc:    // Alcazar
                     if (joystick.values[ODROID_INPUT_START])
                     {

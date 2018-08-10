@@ -363,7 +363,6 @@ void set_config()
 
 int load_rom (char *filename)
 {
-
     FILE *fd = NULL;
 
     size_t nameLength = strlen(filename);
@@ -400,10 +399,12 @@ int load_rom (char *filename)
     if(!fd) abort();
 
     /* Seek to end of file, and get size */
+
     fseek(fd, 0, SEEK_END);
-    cart.size = ftell(fd);
+    size_t actual_size = ftell(fd);
     fseek(fd, 0, SEEK_SET);
 
+    cart.size = actual_size;
     if (cart.size < 0x4000) cart.size = 0x4000;
 
     cart.rom = ESP32_PSRAM;
@@ -414,7 +415,7 @@ int load_rom (char *filename)
     __asm__("nop");
     __asm__("nop");
     __asm__("memw");
-    
+
     fclose(fd);
 
 
@@ -432,7 +433,7 @@ int load_rom (char *filename)
   /* 16k pages */
   cart.pages = cart.size / 0x4000;
 
-  cart.crc = crc32 (0, cart.rom, cart.size);
+  cart.crc = crc32(0, cart.rom, option.console == 6 ? actual_size : cart.size);
   cart.loaded = 1;
 
   set_config();
