@@ -699,9 +699,17 @@ void app_main(void)
                     break;
 
                 case 0x1796de5e:    // Boulder Dash
+                case 0x5933ac18:    // Boulder Dash
+                case 0x6e5c4b11:    // Boulder Dash
                     if (joystick.values[ODROID_INPUT_START])
                     {
                         coleco.keypad[0] = 11; // #
+                    }
+
+                    if (joystick.values[ODROID_INPUT_START] &&
+                        joystick.values[ODROID_INPUT_LEFT])
+                    {
+                        coleco.keypad[0] = 1;
                     }
 
                     if (previousState.values[ODROID_INPUT_SELECT] &&
