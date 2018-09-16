@@ -685,7 +685,9 @@ void app_main(void)
             switch (cart.crc)
             {
                 case 0x798002a2:    // Frogger
+                case 0x32b95be0:    // Frogger
                 case 0x9cc3fabc:    // Alcazar
+                case 0x964db3bc:    // Fraction Fever
                     if (joystick.values[ODROID_INPUT_START])
                     {
                         coleco.keypad[0] = 10; // *
@@ -699,15 +701,35 @@ void app_main(void)
                     break;
 
                 case 0x1796de5e:    // Boulder Dash
+                case 0x5933ac18:    // Boulder Dash
+                case 0x6e5c4b11:    // Boulder Dash
                     if (joystick.values[ODROID_INPUT_START])
                     {
                         coleco.keypad[0] = 11; // #
+                    }
+
+                    if (joystick.values[ODROID_INPUT_START] &&
+                        joystick.values[ODROID_INPUT_LEFT])
+                    {
+                        coleco.keypad[0] = 1;
                     }
 
                     if (previousState.values[ODROID_INPUT_SELECT] &&
                         !joystick.values[ODROID_INPUT_SELECT])
                     {
                         system_reset();
+                    }
+                    break;
+                case 0x109699e2:    // Dr. Seuss's Fix-Up The Mix-Up Puzzler
+                case 0x614bb621:    // Decathlon
+                    if (joystick.values[ODROID_INPUT_START])
+                    {
+                        coleco.keypad[0] = 1;
+                    }
+                    if (joystick.values[ODROID_INPUT_START] &&
+                        joystick.values[ODROID_INPUT_LEFT])
+                    {
+                        coleco.keypad[0] = 10; // *
                     }
                     break;
 
