@@ -57,7 +57,6 @@
 #define  DEFAULT_WIDTH        256
 #define  DEFAULT_HEIGHT       NES_VISIBLE_HEIGHT
 
-
 odroid_volume_level Volume;
 odroid_battery_state battery;
 int scaling_enabled = 1;
@@ -528,63 +527,6 @@ int osd_init()
 	if (osd_init_sound())
     {
         abort();
-    }
-
-
-    // Joystick.
-    odroid_input_gamepad_init();
-    odroid_input_battery_level_init();
-
-    //printf("osd_init: ili9341_prepare\n");
-    ili9341_prepare();
-
-    switch (esp_sleep_get_wakeup_cause())
-    {
-        case ESP_SLEEP_WAKEUP_EXT0:
-        {
-            printf("app_main: ESP_SLEEP_WAKEUP_EXT0 deep sleep reset\n");
-            break;
-        }
-
-        case ESP_SLEEP_WAKEUP_EXT1:
-        case ESP_SLEEP_WAKEUP_TIMER:
-        case ESP_SLEEP_WAKEUP_TOUCHPAD:
-        case ESP_SLEEP_WAKEUP_ULP:
-        case ESP_SLEEP_WAKEUP_UNDEFINED:
-        {
-            printf("app_main: Unexpected deep sleep reset\n");
-            odroid_gamepad_state bootState = odroid_input_read_raw();
-
-            if (bootState.values[ODROID_INPUT_MENU])
-            {
-                // Force return to factory app to recover from
-                // ROM loading crashes
-
-                // Set menu application
-                odroid_system_application_set(0);
-
-                // Reset
-                esp_restart();
-            }
-
-            if (bootState.values[ODROID_INPUT_START])
-            {
-                // Reset emulator if button held at startup to
-                // override save state
-                forceConsoleReset = true; //emu_reset();
-            }
-        }
-            break;
-
-        default:
-            printf("app_main: Not a deep sleep reset\n");
-            break;
-    }
-
-    if (odroid_settings_StartAction_get() == ODROID_START_ACTION_RESTART)
-    {
-        forceConsoleReset = true;
-        odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
     }
 
 
