@@ -167,8 +167,8 @@ void odroid_audio_submit(short* stereoAudioBuffer, int frameCount)
         // Convert for built in DAC
         for (short i = 0; i < currentAudioSampleCount; i += 2)
         {
-            int32_t dac0;
-            int32_t dac1;
+            uint16_t dac0;
+            uint16_t dac1;
 
             if (Volume == 0.0f)
             {
