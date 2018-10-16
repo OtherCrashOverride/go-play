@@ -12,10 +12,11 @@ Emulator firmware for ODROID Go.
 ## Building
 
 1. Clone this repository with `--recursive` and `cd` into it
-2. Run this in a terminal: `./build.sh`
+2. Open `build.sh` and edit the `SERIAL_PORT` variable to match your setup
+3. Run this in a terminal: `./build.sh`
 
 ## Troubleshooting
 
 - If the build fails with `A fatal error occurred: Invalid head of packet (0x21)`:
-    - Make sure your ODROID Go is plugged in and switched on
-    - Restart the build
+    1. Make sure your ODROID Go is plugged in and switched on
+    2. Restart the build

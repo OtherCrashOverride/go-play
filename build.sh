@@ -16,11 +16,14 @@ set -euo pipefail
 #   limitations under the License.
 #
 
-# Please change the values below to match your setup
+# change below
+
+SERIAL_PORT="/dev/cu.SLAB_USBtoUART"
+
+# Also change this if necessary
 
 export PATH="$PATH:$HOME/esp/xtensa-esp32-elf/bin"
 export IDF_PATH=~/esp/esp-idf
-SERIAL_PORT="/dev/cu.SLAB_USBtoUART"
 
 # You don't need to change the values below this line
 
@@ -70,7 +73,7 @@ if [ ! -f tile.raw ]; then
     cd $PATH_ORIG
 
     # TODO: This might break when the latest release contains no .fw file...
-    curl https://api.github.com/repos/OtherCrashOverride/go-play/releases/latest | python -c "import sys, json; print json.load(sys.stdin)['assets'][0]['browser_download_url']" | xargs curl -o $GO_PLAY_ORIG_FW_PATH
+    curl https://api.github.com/repos/OtherCrashOverride/go-play/releases/latest | python -c "import sys, json; print json.load(sys.stdin)['assets'][0]['browser_download_url']" | xargs curl -L -o $GO_PLAY_ORIG_FW_PATH
 
 	cd $EFWT_PATH
 	make
