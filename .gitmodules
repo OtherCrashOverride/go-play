@@ -1,0 +1,3 @@
+[submodule "odroid-go-firmware"]
+	path = odroid-go-firmware
+	url = https://github.com/OtherCrashOverride/odroid-go-firmware
