@@ -20,7 +20,8 @@ Emulator firmware for ODROID Go.
 
 - If the build fails with `[Errno 2] No such file or directory: '/dev/ttyUSB0'`
     1. Make sure your ODROID Go is plugged in and switched on
-    2. Restart the build
+    2. Make sure that you've edited the `SERIAL_PORT` variable in `build.sh` to contain the correct device!
+    3. Restart the build
 - If the build fails with `A fatal error occurred: Invalid head of packet (0x21)`:
     1. Make sure your ODROID Go is plugged in and switched on
     2. Restart the build
