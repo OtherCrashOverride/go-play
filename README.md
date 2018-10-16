@@ -13,3 +13,8 @@ Emulator firmware for ODROID Go.
 
 1. Clone this repository with `--recursive` and `cd` into it
 2. Run this in a terminal: `./make.sh`
+
+## Troubleshooting
+
+- If the build fails with `A fatal error occurred: Invalid head of packet (0x21)`:
+    - Simply restart the build

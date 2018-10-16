@@ -20,13 +20,13 @@ set -euo pipefail
 
 export PATH="$PATH:$HOME/esp/xtensa-esp32-elf/bin"
 export IDF_PATH=~/esp/esp-idf
-SERIAL_PORT="/dev/ttyUSB0"
+SERIAL_PORT="/dev/cu.SLAB_USBtoUART"
 
 # You don't need to change the values below this line
 
 PATH_ORIG=`pwd`
 GO_PLAY_ORIG_FW_PATH="Go-Play.fw"
-EFWT_PATH="../efwt"
+EFWT_PATH="efwt"
 GOPLAY_SOURCE_PATH="."
 MKFW_PATH="odroid-go-firmware/tools/mkfw"
 
