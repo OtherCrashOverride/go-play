@@ -18,7 +18,7 @@ set -euo pipefail
 
 # change below
 
-SERIAL_PORT="/dev/cu.SLAB_USBtoUART"
+SERIAL_PORT="/dev/ttyUSB0"
 
 # Also change this if necessary
 
