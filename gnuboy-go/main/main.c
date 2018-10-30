@@ -241,11 +241,14 @@ static void SaveState()
 {
     // Save sram
     odroid_input_battery_monitor_enabled_set(0);
-    odroid_system_led_set(1);
+    odroid_system_led_set(1);    
 
     char* romPath = odroid_settings_RomFilePath_get();
     if (romPath)
     {
+        odroid_display_lock_gb_display();
+        odroid_display_drain_spi();
+
         char* fileName = odroid_util_GetFileName(romPath);
         if (!fileName) abort();
 
@@ -263,6 +266,8 @@ static void SaveState()
         fclose(f);
 
         printf("%s: savestate OK.\n", __func__);
+
+        odroid_display_unlock_gb_display();
 
         free(pathName);
         free(fileName);
@@ -284,16 +289,18 @@ static void SaveState()
         }
     }
 
-
     odroid_system_led_set(0);
     odroid_input_battery_monitor_enabled_set(1);
 }
 
-static void LoadState(const char* cartName)
-{
+static void LoadState()
+{    
     char* romName = odroid_settings_RomFilePath_get();
     if (romName)
     {
+        odroid_display_lock_gb_display();
+        odroid_display_drain_spi();
+
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
@@ -317,6 +324,8 @@ static void LoadState(const char* cartName)
 
             printf("LoadState: loadstate OK.\n");
         }
+
+        odroid_display_unlock_gb_display();
 
         free(pathName);
         free(fileName);
@@ -342,8 +351,7 @@ static void LoadState(const char* cartName)
             printf("LoadState: loadstate OK.\n");
         }
     }
-
-
+    
     Volume = odroid_settings_Volume_get();
 }
 
@@ -575,7 +583,7 @@ void app_main(void)
 
 
     // Load state
-    LoadState(rom.name);
+    LoadState();
 
 
     uint startTime;
@@ -652,6 +660,18 @@ void app_main(void)
         {
             scaling_enabled = !scaling_enabled;
             odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_GB, scaling_enabled ? 0 : 1);
+        }
+
+        if (joystick.values[ODROID_INPUT_SELECT])
+        {
+            if (joystick.values[ODROID_INPUT_DOWN] && !lastJoysticState.values[ODROID_INPUT_DOWN])
+            {
+                SaveState();
+            }
+            else if (joystick.values[ODROID_INPUT_UP] && !lastJoysticState.values[ODROID_INPUT_UP])
+            {
+                LoadState();
+            }
         }
 
 

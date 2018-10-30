@@ -178,7 +178,7 @@ static void SaveState()
     odroid_input_battery_monitor_enabled_set(1);
 }
 
-static void LoadState(const char* cartName)
+static void LoadState()
 {
     char* romName = odroid_settings_RomFilePath_get();
     if (romName)
@@ -584,7 +584,7 @@ void app_main(void)
     system_reset();
 
     // Restore state
-    LoadState(cartName);
+    LoadState();
 
     if (forceConsoleReset)
     {
@@ -655,6 +655,17 @@ void app_main(void)
             odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_SMS, scaling_enabled ? 0 : 1);
         }
 
+        if (joystick.values[ODROID_INPUT_SELECT])
+        {
+            if (joystick.values[ODROID_INPUT_DOWN] && !previousState.values[ODROID_INPUT_DOWN])
+            {
+                SaveState();
+            }
+            else if (joystick.values[ODROID_INPUT_UP] && !previousState.values[ODROID_INPUT_UP])
+            {
+                LoadState();
+            }
+        }        
 
         startTime = xthal_get_ccount();
 
