@@ -298,9 +298,6 @@ static void LoadState()
     char* romName = odroid_settings_RomFilePath_get();
     if (romName)
     {
-        odroid_display_lock_gb_display();
-        odroid_display_drain_spi();
-
         char* fileName = odroid_util_GetFileName(romName);
         if (!fileName) abort();
 
@@ -324,8 +321,6 @@ static void LoadState()
 
             printf("LoadState: loadstate OK.\n");
         }
-
-        odroid_display_unlock_gb_display();
 
         free(pathName);
         free(fileName);
