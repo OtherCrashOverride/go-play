@@ -405,6 +405,8 @@ SNSS_ReadBaseBlock (SNSS_FILE *snssFile)
    snssFile->baseBlock.spriteRamAddress = blockBytes[0x192F];
    snssFile->baseBlock.tileXOffset = blockBytes[0x1930];
 
+   free(blockBytes);
+   
    return SNSS_OK;
 }
 
@@ -458,6 +460,8 @@ SNSS_WriteBaseBlock (SNSS_FILE *snssFile)
 
    snssFile->headerBlock.numberOfBlocks++;
 
+   free(blockBytes);
+   
    return SNSS_OK;
 }
 

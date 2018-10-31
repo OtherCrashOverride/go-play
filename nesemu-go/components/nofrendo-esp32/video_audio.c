@@ -457,6 +457,17 @@ static int ConvertJoystickInput()
         odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_NES, scaling_enabled ? 0 : 1);
     }
 
+    if (state.values[ODROID_INPUT_SELECT])
+    {
+        if (state.values[ODROID_INPUT_DOWN] && !previousJoystickState.values[ODROID_INPUT_DOWN])
+        {
+            SaveState();
+        }
+        else if (state.values[ODROID_INPUT_UP] && !previousJoystickState.values[ODROID_INPUT_UP])
+        {
+            load_sram();
+        }
+    }
 
     previousJoystickState = state;
 
