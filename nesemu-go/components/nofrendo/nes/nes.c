@@ -40,7 +40,6 @@
 #include <nofrendo.h>
 #include "nesstate.h"
 
-
 #define NES_CLOCK_DIVIDER 12
 //#define  NES_MASTER_CLOCK     21477272.727272727272
 #define NES_MASTER_CLOCK (236250000 / 11)
@@ -51,8 +50,8 @@
 
 #define NES_SKIP_LIMIT (NES_REFRESH_RATE / 5) /* 12 or 10, depending on PAL/NTSC */
 
-
 static nes_t nes;
+extern bool forceConsoleReset;
 
 /* find out if a file is ours */
 int nes_isourfile(const char *filename)
@@ -317,7 +316,7 @@ static void nes_renderframe(bool draw_flag)
 
       if (mapintf->vblank)
         mapintf->vblank();
-      
+
       in_vblank = 1;
     }
 
@@ -361,7 +360,6 @@ static void system_video(bool draw)
 }
 #endif
 
-
 //#define SOUND_SAMPLERATE (44100)
 //#define SOUND_BITSPERSAMPLE (16)
 //#define AUDIO_BUFFER_LENGTH (SOUND_SAMPLERATE / NES_REFRESH_RATE)
@@ -370,16 +368,13 @@ int16 audio_frame[AUDIO_BUFFER_LENGTH];
 
 void do_audio_frame()
 {
-    nes.apu->process(audio_frame, AUDIO_BUFFER_LENGTH); //get more data
+  nes.apu->process(audio_frame, AUDIO_BUFFER_LENGTH); //get more data
 }
-
-
 
 void nes_start()
 {
   nes.scanline_cycles = 0;
   nes.fiq_cycles = (int)NES_FIQ_PERIOD;
-
 
   for (int i = 0; i < 4; ++i)
   {
@@ -397,17 +392,23 @@ void nes_start()
 
 void nes_step()
 {
-    nes_renderframe(1);
-    //system_video(1);
-    do_audio_frame();
+  if (forceConsoleReset)
+  {
+    nes_reset(SOFT_RESET);
+    forceConsoleReset = false;
+  }
+
+  nes_renderframe(1);
+  //system_video(1);
+  do_audio_frame();
 }
 
-uint8* nes_framebuffer_get()
+uint8 *nes_framebuffer_get()
 {
   return nes.vidbuf->data;
 }
 
-rgb_t* nes_palette_get()
+rgb_t *nes_palette_get()
 {
   return nes.ppu->curpal;
 }

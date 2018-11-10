@@ -365,7 +365,7 @@ void load_mapperblock(nes_t *state, SNSS_FILE *snssFile)
     mmc_setcontext(state->mmc);
 }
 
-static int state_save(char *fn)
+int state_save(char *fn)
 {
     SNSS_FILE *snssFile;
     SNSS_RETURN_CODE status;
@@ -442,7 +442,7 @@ _error:
 
 extern bool forceConsoleReset;
 
-static int state_load(char *fn)
+int state_load(char *fn)
 {
     SNSS_FILE *snssFile;
     SNSS_RETURN_CODE status;
@@ -522,14 +522,16 @@ static int state_load(char *fn)
     return 0;
 
 _error:
-    gui_sendmsg(GUI_RED, "error: %s", SNSS_GetErrorString(status));
+    printf("error: %s", SNSS_GetErrorString(status));
     SNSS_CloseFile(&snssFile);
     abort();
 }
 
 void save_sram()
 {
-#if 0
+#if 1
+    abort();
+#else
     odroid_display_lock_nes_display();
     odroid_display_drain_spi();
 
@@ -569,7 +571,9 @@ void save_sram()
 
 void load_sram()
 {
-#if 0
+#if 1
+    abort();
+#else
     odroid_display_lock_nes_display();
     odroid_display_drain_spi();
 

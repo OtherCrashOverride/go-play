@@ -34,7 +34,7 @@ typedef uint8_t uint8;
 const char *SD_BASE_PATH = "/sd";
 static char *ROM_DATA; // = (char*)0x3f800000;
 
-static bool forceConsoleReset;
+bool forceConsoleReset;
 
 typedef struct nes_s nes_t;
 
@@ -49,11 +49,14 @@ extern void nes_start();
 extern void nes_step();
 extern uint8_t *nes_framebuffer_get();
 extern rgb_t *nes_palette_get();
+extern int state_save(char *fn);
+extern int state_load(char *fn);
+extern nes_t *console_nes;
 
 static nesinput_t nes_gamepad_0 = {INP_JOYPAD0, 0};
 static uint16_t palette[256];
+const char *romPath;
 
-#define AUDIO_SAMPLE_RATE (44100)
 
 char *osd_getromdata()
 {
@@ -74,9 +77,10 @@ static void palette_copy()
     }
 }
 
+
+#define AUDIO_SAMPLE_RATE (44100)
 #define AUDIO_SAMPLE_COUNT (44100 / 60)
 static int16_t audio_buffer[AUDIO_SAMPLE_COUNT * 2];
-
 extern int16_t audio_frame[];
 
 void play_audio()
@@ -90,6 +94,7 @@ void play_audio()
 
     odroid_audio_submit((short *)audio_buffer, AUDIO_SAMPLE_COUNT);
 }
+
 
 static void display_frame()
 {
@@ -160,9 +165,55 @@ static void videoTask(void *arg)
     }
 }
 
-static void save_state()
+static void do_save_state()
 {
-    // TODO
+    printf("Saving state.\n");
+
+    odroid_input_battery_monitor_enabled_set(0);
+    odroid_system_led_set(1);
+
+    odroid_display_lock_nes_display();
+    
+
+    char* fileName = odroid_util_GetFileName(romPath);
+    if (!fileName) abort();
+
+    char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
+    if (!pathName) abort();
+
+    state_save(pathName);
+
+    free(pathName);
+    free(fileName);
+
+
+    odroid_display_unlock_nes_display();
+
+    odroid_system_led_set(0);
+    odroid_input_battery_monitor_enabled_set(1);
+
+    printf("Saving state done.\n");
+}
+
+static void do_load_state()
+{
+    printf("Loading state.\n");
+    odroid_display_lock_nes_display();
+
+
+    char* fileName = odroid_util_GetFileName(romPath);
+    if (!fileName) abort();
+
+    char* pathName = odroid_sdcard_create_savefile_path(SD_BASE_PATH, fileName);
+    if (!pathName) abort();
+
+    state_load(pathName);
+
+    free(pathName);
+    free(fileName);
+    
+    odroid_display_unlock_nes_display();
+    printf("Loading state done.\n");
 }
 
 static void do_menu()
@@ -184,7 +235,7 @@ static void do_menu()
 
     // state
     printf("PowerDown: Saving state.\n");
-    save_state();
+    do_save_state();
 
 
     // Set menu application
@@ -219,7 +270,7 @@ int app_main(void)
     odroid_input_battery_level_init();
 
     //printf("osd_init: ili9341_prepare\n");
-    ili9341_prepare();
+    //ili9341_prepare();
 
     switch (esp_sleep_get_wakeup_cause())
     {
@@ -279,7 +330,7 @@ int app_main(void)
         abort();
     }
 
-    const char *romPath = odroid_settings_RomFilePath_get();
+    romPath = odroid_settings_RomFilePath_get();
     while (!romPath)
     {
         const char* current = "";
@@ -299,12 +350,12 @@ int app_main(void)
         abort();
     }
 
-    r = odroid_sdcard_close();
-    if (r != ESP_OK)
-    {
-        odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-        abort();
-    }
+    // r = odroid_sdcard_close();
+    // if (r != ESP_OK)
+    // {
+    //     odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+    //     abort();
+    // }
 
     //free(romPath);
 
@@ -322,7 +373,8 @@ int app_main(void)
     ili9341_write_frame_nes(NULL, NULL, 0);
 
     nes_t *nes = nes_create();
-
+    console_nes = nes;
+    
     input_register(&nes_gamepad_0);
 
     int nes_ret = nes_insertcart(romPath, nes);
@@ -331,7 +383,10 @@ int app_main(void)
 
     palette_copy();
 
+
     nes_start();
+    do_load_state();
+
 
     odroid_gamepad_state previousState;
     odroid_input_gamepad_read(&previousState);
