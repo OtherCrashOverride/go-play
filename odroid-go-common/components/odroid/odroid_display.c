@@ -1214,7 +1214,8 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
                   for (x = 0; x < NES_GAME_WIDTH; ++x)
                   {
-                    line_buffer[index++] = myPalette[framePtr[bufferIndex++]];
+                    uint16_t pixel = myPalette[framePtr[bufferIndex++]];
+                    line_buffer[index++] = (pixel << 8) | (pixel >> 8);
                   }
 
                   ++linesWritten;
