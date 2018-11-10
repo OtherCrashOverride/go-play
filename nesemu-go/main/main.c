@@ -318,9 +318,14 @@ int app_main(void)
 
     uint32_t frameCount = 0;
     uint32_t skipFrame = 0;
+    uint32_t startTime = 0;
+    uint32_t stopTime = 0;
+    uint32_t totalElapsedTime = 0;
+
     while (1)
     {
-#if 1
+        startTime = xthal_get_ccount();
+
         // Input
         odroid_gamepad_state joystick;
         odroid_input_gamepad_read(&joystick);
@@ -338,12 +343,6 @@ int app_main(void)
             odroid_settings_ScaleDisabled_set(ODROID_SCALE_DISABLE_SMS, scaling_enabled ? 0 : 1);
         }
 
-#if 0
-        printf("Sel=%d, Sta=%d, A=%d, B=%d, U=%d, D=%d, L=%d, R=%d\n",
-            dpad0_state.Select, dpad0_state.Start, dpad0_state.A, dpad0_state.B,
-            dpad0_state.Up, dpad0_state.Down, dpad0_state.Left, dpad0_state.Right);
-#endif
-
         nes_gamepad_0.data = 0;
 
         nes_gamepad_0.data |= joystick.values[ODROID_INPUT_A] ? INP_PAD_A : 0;
@@ -357,7 +356,6 @@ int app_main(void)
         nes_gamepad_0.data |= joystick.values[ODROID_INPUT_RIGHT] ? INP_PAD_RIGHT : 0;
 
         previousState = joystick;
-#endif
 
         // Simulate
         nes_step();
@@ -367,30 +365,38 @@ int app_main(void)
 
         if (!(skipFrame & 0x01))
         {
-            //display_frame();
-
-#if 0
-            uint8_t* src = nes_framebuffer_get() + 8;
-            uint8_t* dst = frontBuffer;
-
-            for (int i = 0; i < MY; ++i)
-            {
-                memcpy(dst, src, MX);
-                src += NES_STRIDE;
-                dst += MX;
-            }
-#endif
-
             uint8_t *temp = frontBuffer;
             xQueueSend(vidQueue, &temp, portMAX_DELAY);
         }
 
         // Stats
-        //printf("step (%d)\n", frameCount);
+        stopTime = xthal_get_ccount();
+
+        int elapsedTime;
+        if (stopTime > startTime)
+            elapsedTime = (stopTime - startTime);
+        else
+            elapsedTime = ((uint64_t)stopTime + (uint64_t)0xffffffff) - (startTime);
+
+        totalElapsedTime += elapsedTime;
+
         ++frameCount;
+        if (frameCount == 60)
+        {
+            float seconds = totalElapsedTime / (CONFIG_ESP32_DEFAULT_CPU_FREQ_MHZ * 1000000.0f);
+            float fps = frameCount / seconds;
+
+            printf("HEAP:0x%x (%#08x), FPS:%f, BATTERY:%d [%d]\n", esp_get_free_heap_size(), heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                   fps, battery.millivolts, battery.percentage);
+
+            frameCount = 0;
+            totalElapsedTime = 0;
+        }
 
         if (skipFrame % 7 == 0)
+        {
             ++skipFrame;
+        }
         ++skipFrame;
     }
 }
