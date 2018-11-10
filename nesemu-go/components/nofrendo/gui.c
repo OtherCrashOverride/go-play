@@ -40,6 +40,7 @@
 #include <gui_elem.h>
 #include <vid_drv.h>
 
+
 /* TODO: oh god */
 /* 8-bit GUI color table */
 rgb_t gui_pal[GUI_TOTALCOLORS] =
@@ -60,6 +61,7 @@ rgb_t gui_pal[GUI_TOTALCOLORS] =
    { 0x00, 0x00, 0x3F }  /* dark blue  */
 };
 
+#if 0
 /**************************************************************/
 #include <pcx.h>
 #include <nesstate.h>
@@ -695,3 +697,4 @@ void gui_shutdown(void)
 ** initial revision
 **
 */
+#endif

@@ -112,6 +112,18 @@ extern void nes_reset(int reset_type);
 extern void nes_poweroff(void);
 extern void nes_togglepause(void);
 
+extern void nes_start();
+extern void nes_step();
+
+extern uint8* nes_framebuffer_get();
+extern rgb_t* nes_palette_get();
+
+#define SOUND_SAMPLERATE (44100)
+#define SOUND_BITSPERSAMPLE (16)
+#define AUDIO_BUFFER_LENGTH (SOUND_SAMPLERATE / NES_REFRESH_RATE)
+
+extern int16 audio_frame[AUDIO_BUFFER_LENGTH];
+
 #endif /* _NES_H_ */
 
 /*

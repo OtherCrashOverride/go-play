@@ -534,7 +534,7 @@ static event_t *event_system_table[NUM_SUPPORTED_SYSTEMS] =
 void event_init(void)
 {
    input_register(&kb_input);
-   input_register(&kb_alt_input);
+   //input_register(&kb_alt_input);
 }
 
 /* set up the event system for a certain console/system type */

@@ -67,7 +67,9 @@ static uint8 get_pad0(void)
       value &= ~(INP_PAD_LEFT | INP_PAD_RIGHT);
 
    /* return (0x40 | value) due to bus conflicts */
-   return (0x40 | ((value >> pad0_readcount++) & 1));
+   uint8 result = (0x40 | ((value >> pad0_readcount++) & 1));
+   //printf("get_pad0=%x\n", result);
+   return result;
 }
 
 static uint8 get_pad1(void)
@@ -160,6 +162,8 @@ void input_register(nesinput_t *input)
 
    nes_input[active_entries] = input;
    active_entries++;
+
+   printf("input_register: input=%p, active_entries=%d\n", input, active_entries);
 }
 
 void input_event(nesinput_t *input, int state, int value)

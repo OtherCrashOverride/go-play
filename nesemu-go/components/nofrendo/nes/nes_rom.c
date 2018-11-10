@@ -86,6 +86,9 @@ typedef struct inesheader_s
 /* Save battery-backed RAM */
 static void rom_savesram(rominfo_t *rominfo)
 {
+#if 1
+      return; //abort();
+#else
    FILE *fp;
    char fn[PATH_MAX + 1];
 
@@ -104,11 +107,15 @@ static void rom_savesram(rominfo_t *rominfo)
          log_printf("Wrote battery RAM to %s.\n", fn);
       }
    }
+#endif
 }
 
 /* Load battery-backed RAM from disk */
 static void rom_loadsram(rominfo_t *rominfo)
 {
+#if 1
+      return; //abort();
+#else
    FILE *fp;
    char fn[PATH_MAX + 1];
 
@@ -127,6 +134,7 @@ static void rom_loadsram(rominfo_t *rominfo)
          log_printf("Read battery RAM from %s.\n", fn);
       }
    }
+#endif
 }
 
 /* Allocate space for SRAM */
@@ -212,6 +220,9 @@ static int rom_loadrom(unsigned char **rom, rominfo_t *rominfo)
 /* If we've got a VS. system game, load in the palette, as well */
 static void rom_checkforpal(rominfo_t *rominfo)
 {
+#if 1
+      abort();
+#else
    FILE *fp;
    rgb_t vs_pal[64];
    char filename[PATH_MAX + 1];
@@ -239,10 +250,14 @@ static void rom_checkforpal(rominfo_t *rominfo)
    /* TODO: bad, BAD idea, calling nes_getcontextptr... */
    ppu_setpal(nes_getcontextptr()->ppu, vs_pal);
    log_printf("Game specific palette found -- assuming VS. UniSystem\n");
+#endif
 }
 
 static FILE *rom_findrom(const char *filename, rominfo_t *rominfo)
 {
+#if 1
+      abort();
+#else
    FILE *fp;
 
    ASSERT(rominfo);
@@ -265,6 +280,7 @@ static FILE *rom_findrom(const char *filename, rominfo_t *rominfo)
    }
 
    return fp;
+#endif
 }
 
 /* Add ROM name to a list with dirty headers */
@@ -343,7 +359,8 @@ static int rom_getheader(unsigned char **rom, rominfo_t *rominfo)
 
    if (memcmp(head.ines_magic, ROM_INES_MAGIC, 4))
    {
-      gui_sendmsg(GUI_RED, "%s is not a valid ROM image", rominfo->filename);
+      //gui_sendmsg(GUI_RED, "%s is not a valid ROM image", rominfo->filename);
+      abort();
       return -1;
    }
 
@@ -439,6 +456,9 @@ char *rom_getinfo(rominfo_t *rominfo)
 /* Load a ROM image into memory */
 rominfo_t *rom_load(const char *filename)
 {
+#if 0
+      abort();
+#else
    unsigned char *rom=(unsigned char*)osd_getromdata();
    rominfo_t *rominfo;
 
@@ -451,6 +471,11 @@ rominfo_t *rom_load(const char *filename)
    strncpy(rominfo->filename, filename, sizeof(rominfo->filename));
    printf("rom_load: rominfo->filename='%s'\n", rominfo->filename);
 
+      //FILE* fp = fopen(filename, "rb");
+      //if (!fp) abort();
+
+      //fread(rom, 1, 64 * 1024, fp);
+
    /* Get the header and stick it into rominfo struct */
 	if (rom_getheader(&rom, rominfo))
       goto _fail;
@@ -458,7 +483,8 @@ rominfo_t *rom_load(const char *filename)
    /* Make sure we really support the mapper */
    if (false == mmc_peek(rominfo->mapper_number))
    {
-      gui_sendmsg(GUI_RED, "Mapper %d not yet implemented", rominfo->mapper_number);
+      //gui_sendmsg(GUI_RED, "Mapper %d not yet implemented", rominfo->mapper_number);
+      abort();
       goto _fail;
    }
 
@@ -479,13 +505,14 @@ rominfo_t *rom_load(const char *filename)
    /* See if there's a palette we can load up */
 //   rom_checkforpal(rominfo);
 
-   gui_sendmsg(GUI_GREEN, "ROM loaded: %s", rom_getinfo(rominfo));
+   //gui_sendmsg(GUI_GREEN, "ROM loaded: %s", rom_getinfo(rominfo));
 
    return rominfo;
 
 _fail:
    rom_free(&rominfo);
    return NULL;
+#endif
 }
 
 /* Free a ROM */
@@ -493,7 +520,8 @@ void rom_free(rominfo_t **rominfo)
 {
    if (NULL == *rominfo)
    {
-      gui_sendmsg(GUI_GREEN, "ROM not loaded");
+      //gui_sendmsg(GUI_GREEN, "ROM not loaded");
+      abort();
       return;
    }
 
@@ -518,7 +546,7 @@ void rom_free(rominfo_t **rominfo)
 
    free(*rominfo);
 
-   gui_sendmsg(GUI_GREEN, "ROM freed");
+   //gui_sendmsg(GUI_GREEN, "ROM freed");
 }
 
 /*

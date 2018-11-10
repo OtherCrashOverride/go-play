@@ -1083,10 +1083,26 @@ void ili9341_write_frame_sms(uint8_t* buffer, uint16_t color[], uint8_t isGameGe
 }
 
 //
+static inline uint16_t BlendRGB565(uint16_t a, uint16_t b, float t)
+{
+    uint8_t ar = (a >> 11);
+    uint8_t ag = (a >> 5) & 0x3f;
+    uint8_t ab = a & 0x1f;
+
+    uint8_t br = (b >> 11);
+    uint8_t bg = (b >> 5) & 0x3f;
+    uint8_t bb = b & 0x1f;
+
+    uint8_t rv = ((br - ar) * t) + ar;
+    uint8_t gv = ((bg - ag) * t) + ag;
+    uint8_t bv = ((bb - ab) * t) + ab;
+
+    return (rv << 11) | (gv << 5) | (bv);
+}
 
 void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale)
 {
-    short x, y;
+    int x, y;
 
     odroid_display_lock_nes_display();
 
@@ -1115,10 +1131,11 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
         if (scale)
         {
-            const uint16_t displayWidth = 320 - 10;
+            const uint16_t displayWidth = 320;
             const uint16_t top = (240 - NES_GAME_HEIGHT) / 2;
+            const uint16_t left = 0;
 
-            send_reset_drawing((320 / 2) - (displayWidth / 2), top, displayWidth, NES_GAME_HEIGHT);
+            send_reset_drawing(left, top, displayWidth, NES_GAME_HEIGHT);
 
             for (y = 0; y < NES_GAME_HEIGHT; y += LINE_COUNT)
             {
@@ -1127,15 +1144,15 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
 
               for (short i = 0; i < LINE_COUNT; ++i)
               {
-                  if((y + i) >= NES_GAME_HEIGHT)
-                    break;
+                  if((y + i) >= NES_GAME_HEIGHT) break;
 
                   int index = (i) * displayWidth;
-
-                  int bufferIndex = ((y + i) * NES_GAME_WIDTH) + 4;
+                  
+#if 0
+                  int bufferIndex = ((y + i) * NES_GAME_WIDTH);
 
                   uint16_t samples[4];
-                  for (x = 4; x < NES_GAME_WIDTH - 4; x += 4)
+                  for (x = 0; x < NES_GAME_WIDTH; x += 4)
                   {
                     for (short j = 0; j < 4; ++j)
                     {
@@ -1143,7 +1160,8 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
                         samples[j] = myPalette[val];
                     }
 
-                    uint16_t mid = Blend(samples[1] >> 8 | samples[1] << 8, samples[2] >> 8 | samples[2] << 8);
+                    //uint16_t mid = Blend(samples[1] >> 8 | samples[1] << 8, samples[2] >> 8 | samples[2] << 8);
+                    uint16_t mid = BlendRGB565(samples[1] >> 8 | samples[1] << 8, samples[2] >> 8 | samples[2] << 8, 0.5f);
 
                     line_buffer[index++] = samples[0];
                     line_buffer[index++] = samples[1];
@@ -1151,6 +1169,24 @@ void ili9341_write_frame_nes(uint8_t* buffer, uint16_t* myPalette, uint8_t scale
                     line_buffer[index++] = samples[2];
                     line_buffer[index++] = samples[3];
                   }
+#else
+                const float s = NES_GAME_WIDTH / 320.0;
+                for (x = 0; x < 320; ++x)
+                {
+                    int aX = x * s;
+                    float t = x * s - aX;
+                    int bX = (x + 1) * s;
+
+                    uint16_t a = myPalette[framePtr[(y + i) * 256 + aX]];
+                    //a = (a >> 8) | (a << 8);
+
+                    uint16_t b = myPalette[framePtr[(y + i) * 256 + bX]];
+                    //b = (b >> 8) | (b << 8);
+
+                    uint16_t mid = BlendRGB565(a, b, t);
+                    line_buffer[index++] = (mid << 8) | (mid >> 8);
+                }
+#endif
 
                   ++linesWritten;
               }

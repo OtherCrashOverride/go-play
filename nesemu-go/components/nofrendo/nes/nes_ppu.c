@@ -557,7 +557,7 @@ static void ppu_buildpalette(ppu_t *src_ppu, rgb_t *pal)
 void ppu_setpal(ppu_t *src_ppu, rgb_t *pal)
 {
    ppu_buildpalette(src_ppu, pal);
-   vid_setpalette(src_ppu->curpal);
+   //vid_setpalette(src_ppu->curpal);
 }
 
 void ppu_setdefaultpal(ppu_t *src_ppu)
