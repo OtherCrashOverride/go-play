@@ -38,6 +38,8 @@
 #include <log.h>
 #include <osd.h>
 
+#include <esp_heap_caps.h>
+
 extern char *osd_getromdata();
 
 /* Max length for displayed filename */
@@ -141,7 +143,8 @@ static void rom_loadsram(rominfo_t *rominfo)
 static int rom_allocsram(rominfo_t *rominfo)
 {
    /* Load up SRAM */
-   rominfo->sram = malloc(SRAM_BANK_LENGTH * rominfo->sram_banks);
+   //rominfo->sram = malloc(SRAM_BANK_LENGTH * rominfo->sram_banks);
+   rominfo->sram = heap_caps_malloc(SRAM_BANK_LENGTH * rominfo->sram_banks, MALLOC_CAP_SPIRAM);
    if (NULL == rominfo->sram)
    {
       printf("Could not allocate space for battery RAM");

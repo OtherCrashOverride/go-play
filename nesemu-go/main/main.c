@@ -28,6 +28,9 @@ typedef uint8_t uint8;
 #include "../components/odroid/odroid_input.h"
 #include "../components/odroid/odroid_audio.h"
 
+#include "ui.h"
+
+
 const char *SD_BASE_PATH = "/sd";
 static char *ROM_DATA; // = (char*)0x3f800000;
 
@@ -157,6 +160,41 @@ static void videoTask(void *arg)
     }
 }
 
+static void save_state()
+{
+    // TODO
+}
+
+static void do_menu()
+{
+    esp_err_t err;
+    uint16_t* param = 1;
+
+    // Clear audio to prevent studdering
+    printf("PowerDown: stopping audio.\n");
+    odroid_audio_terminate();
+
+
+    // Stop tasks
+    printf("PowerDown: stopping tasks.\n");
+
+    xQueueSend(vidQueue, &param, portMAX_DELAY);
+    while (videoTaskIsRunning) { vTaskDelay(1); }
+
+
+    // state
+    printf("PowerDown: Saving state.\n");
+    save_state();
+
+
+    // Set menu application
+    odroid_system_application_set(0);
+
+
+    // Reset
+    esp_restart();
+}
+
 int app_main(void)
 {
     printf("nesemu (%s-%s).\n", COMPILEDATE, GITREV);
@@ -232,62 +270,44 @@ int app_main(void)
         odroid_settings_StartAction_set(ODROID_START_ACTION_NORMAL);
     }
 
+
     // Load ROM
-    char *romPath = odroid_settings_RomFilePath_get();
-    if (!romPath)
+    esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
+    if (r != ESP_OK)
     {
-        // printf("osd_getromdata: Reading from flash.\n");
-
-        // // copy from flash
-        // spi_flash_mmap_handle_t hrom;
-
-        // const esp_partition_t* part = esp_partition_find_first(0x40, 0, NULL);
-        // if (part == 0)
-        // {
-        // 	printf("esp_partition_find_first failed.\n");
-        // 	abort();
-        // }
-
-        // esp_err_t err = esp_partition_read(part, 0, (void*)ROM_DATA, 0x100000);
-        // if (err != ESP_OK)
-        // {
-        // 	printf("esp_partition_read failed. size = %x (%d)\n", part->size, err);
-        // 	abort();
-        // }
-
-        const char *ROM_FILE = "/sd/roms/nes/Super Mario Bros. (World).nes";
-        romPath = malloc(strlen(ROM_FILE) + 1);
-        memcpy(romPath, ROM_FILE, strlen(ROM_FILE) + 1);
+        odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        abort();
     }
-    //else
+
+    const char *romPath = odroid_settings_RomFilePath_get();
+    while (!romPath)
     {
-        printf("osd_getromdata: Reading from sdcard.\n");
-
-        // copy from SD card
-        esp_err_t r = odroid_sdcard_open(SD_BASE_PATH);
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
-
-        size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, ROM_DATA);
-        printf("app_main: fileSize=%d\n", fileSize);
-        if (fileSize == 0)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
-            abort();
-        }
-
-        r = odroid_sdcard_close();
-        if (r != ESP_OK)
-        {
-            odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
-            abort();
-        }
-
-        free(romPath);
+        const char* current = "";
+        romPath = ui_choosefile("/sd/roms/nes", ".nes", current);
+        // Clear display
+        ili9341_write_frame_nes(NULL, NULL, 0);
     }
+
+    printf("app_main: Reading from sdcard.\n");
+
+    // copy from SD card
+    size_t fileSize = odroid_sdcard_copy_file_to_memory(romPath, ROM_DATA);
+    printf("app_main: fileSize=%d\n", fileSize);
+    if (fileSize == 0)
+    {
+        odroid_display_show_sderr(ODROID_SD_ERR_BADFILE);
+        abort();
+    }
+
+    r = odroid_sdcard_close();
+    if (r != ESP_OK)
+    {
+        odroid_display_show_sderr(ODROID_SD_ERR_NOCARD);
+        abort();
+    }
+
+    //free(romPath);
+
 
     odroid_audio_init(odroid_settings_AudioSink_get(), AUDIO_SAMPLE_RATE);
 
@@ -305,7 +325,7 @@ int app_main(void)
 
     input_register(&nes_gamepad_0);
 
-    int nes_ret = nes_insertcart("(none)", nes);
+    int nes_ret = nes_insertcart(romPath, nes);
     if (nes_ret != 0)
         abort();
 
@@ -336,6 +356,11 @@ int app_main(void)
             printf("main: Volume=%d\n", odroid_audio_volume_get());
         }
 
+        if (previousState.values[ODROID_INPUT_MENU] && !joystick.values[ODROID_INPUT_MENU])
+        {
+            do_menu();
+        }
+
         // Scaling
         if (joystick.values[ODROID_INPUT_START] && !previousState.values[ODROID_INPUT_RIGHT] && joystick.values[ODROID_INPUT_RIGHT])
         {
@@ -357,8 +382,10 @@ int app_main(void)
 
         previousState = joystick;
 
+
         // Simulate
         nes_step();
+
 
         // Preset
         play_audio();
@@ -368,6 +395,7 @@ int app_main(void)
             uint8_t *temp = frontBuffer;
             xQueueSend(vidQueue, &temp, portMAX_DELAY);
         }
+
 
         // Stats
         stopTime = xthal_get_ccount();
