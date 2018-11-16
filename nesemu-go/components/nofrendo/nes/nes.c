@@ -375,6 +375,7 @@ void nes_emulate(void)
    frames_to_render = 0;
    nes.scanline_cycles = 0;
    nes.fiq_cycles = (int) NES_FIQ_PERIOD;
+   nes.fiq_state = 0xff; //initialize frameIRQ state
 
    uint startTime;
    uint stopTime;
@@ -458,6 +459,7 @@ void nes_reset(int reset_type)
    nes6502_reset();
 
    nes.scanline = 241;
+   nes.fiq_state = 0xff; //initialize frameIRQ state
 
    gui_sendmsg(GUI_GREEN, "NES %s",
                (HARD_RESET == reset_type) ? "powered on" : "reset");
