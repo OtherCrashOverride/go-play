@@ -173,7 +173,7 @@ void ppu_setpage(int size, int page_num, uint8 *location)
    case 2:
       ppu.page[page_num++] = location;
    case 1:
-      ppu.page[page_num++] = location;
+      ppu.page[page_num] = location;
       break;
    }
 }
@@ -496,7 +496,10 @@ void ppu_write(uint32 address, uint8 value)
             if (false == ppu.vram_present && addr >= 0x3000)
                ppu.vaddr -= 0x1000;
 
-            PPU_MEM(addr) = value;
+            if( ppu.vram_present || (!ppu.vram_present && (addr >= 0x2000)) )
+            {
+                PPU_MEM(addr) = value;
+            }
          }
       }
       else
